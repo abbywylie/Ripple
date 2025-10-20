@@ -1,0 +1,37 @@
+{
+  "name": "ripple-networking-app",
+  "version": "1.0.0",
+  "description": "Professional networking management platform - Frontend & Backend Monorepo",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && python -m uvicorn api_app:app --reload --host 0.0.0.0 --port 8000",
+    "build": "npm run build:frontend",
+    "build:frontend": "cd frontend && npm run build",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && pip install -r requirements.txt",
+    "lint": "cd frontend && npm run lint",
+    "start:backend": "cd backend && python -m uvicorn api_app:app --host 0.0.0.0 --port 8000"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "python": ">=3.8.0"
+  },
+  "keywords": [
+    "networking",
+    "professional",
+    "contacts",
+    "react",
+    "fastapi",
+    "typescript",
+    "python"
+  ],
+  "author": "Ripple Team",
+  "license": "MIT"
+}
