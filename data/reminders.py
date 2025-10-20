@@ -1,109 +1,66 @@
-#Working on it, don't really know how to code in SQL and didnt have much time to work on it
-ChatGPT_Summary = """Summary of Requirements                
-Feature	Solution
-Store reminders	Use follow_ups table
-Set follow-up interval	Store in follow_up_interval column
-Calculate reminder date	Use SQL date functions
-Select reminders by date	Use WHERE next_reminder_date = DATE('now')
-Recurring reminders	Update last_contact_date and recalculate on completion
+#Prompted with code, also has goal to select reminders for certain dates
+Updated_ChatGPT_Summary = """		
+Automatically Set date_next_follow_up
+Assuming you know how long until the next follow-up (e.g., 7 days), you can calculate and store this when:
+	• A new contact is added.
+	• A meeting happens (trigger a follow-up reminder).
+Example: Set next follow-up X days from last meeting
+Update or modify your add_meeting() function to also update the contact's date_next_follow_up.
 
-To implement this SQL-based reminder system for networking follow-ups in a Python backend, you'd typically use:
-	• SQLite (or any RDBMS) via sqlite3 or SQLAlchemy
-	• Python functions to handle:
-		○ Contact creation
-		○ Follow-up insertion
-		○ Automatic calculation of next_reminder_date
-		○ Querying reminders
-		○ (Optionally) auto-repeating reminders
+from datetime import timedelta
+def add_meeting(..., follow_up_days: Optional[int] = None) -> Meeting:
+    ...
+    with get_session() as s:
+        ...
+        mtg = Meeting(...)  # as you already do
+        s.add(mtg)
+# Auto-update follow-up date if specified
+        if follow_up_days:
+            contact = s.get(Contact, contact_id)
+            if contact:
+                contact.date_next_follow_up = (meeting_date or date.today()) + timedelta(days=follow_up_days)
+        
+        s.flush()
+        s.refresh(mtg)
+        return mtg
 
-✅ Python Backend Code (Using sqlite3)
-Below is a minimal functional backend script:
-1. Setup: Create Tables
+✅ 2. Query: Select Upcoming or Due Follow-ups
+To get contacts with reminders on a certain date (e.g., today or within the next week), write a query like:
+Example: Get follow-ups due today
 
-import sqlite3
-# Connect to your SQLite DB (or use ':memory:' for testing)
-conn = sqlite3.connect('followups.db')
-cursor = conn.cursor()
-# Create contacts table
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS contacts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    email TEXT
-);
-''')
-# Create follow_ups table
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS follow_ups (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    contact_id INTEGER,
-    last_contact_date DATE,
-    follow_up_interval INTEGER,
-    next_reminder_date DATE,
-    note TEXT,
-    FOREIGN KEY (contact_id) REFERENCES contacts(id)
-);
-''')
-conn.commit()
+def get_follow_ups_for_date(user_id: int, target_date: date) -> list[Contact]:
+    with get_session() as s:
+        results = s.execute(
+            select(Contact)
+            .where(Contact.user_id == user_id)
+            .where(Contact.date_next_follow_up == target_date)
+        ).scalars().all()
+        return results
+Example: Get follow-ups in next 7 days
 
-2. Insert Contact
+def get_upcoming_follow_ups(user_id: int, days_ahead: int = 7) -> list[Contact]:
+    today = date.today()
+    upcoming = today + timedelta(days=days_ahead)
+    with get_session() as s:
+        results = s.execute(
+            select(Contact)
+            .where(Contact.user_id == user_id)
+            .where(Contact.date_next_follow_up >= today)
+            .where(Contact.date_next_follow_up <= upcoming)
+        ).scalars().all()
+        return results
 
-def add_contact(name, email=None):
-    cursor.execute('INSERT INTO contacts (name, email) VALUES (?, ?)', (name, email))
-    conn.commit()
-    return cursor.lastrowid
+✅ 3. (Optional) Build Notification or Reminder Trigger
+Once you have the above querying logic, you can:
+	• Build a UI view to list upcoming follow-ups.
+	• Send email reminders using a background job (e.g., with Celery or cron).
+	• Show alerts when a user logs in or views their dashboard.
 
-3. Insert Follow-Up (with next_reminder_date auto-set)
+✅ Summary
+Feature	Code/Idea
+Automatically set reminders	Use date_next_follow_up = today + timedelta(days=x)
+Store in DB	Already supported by your Contact table
+Fetch reminders due today	Query: WHERE date_next_follow_up = :date
+Fetch upcoming reminders	Query: WHERE date_next_follow_up BETWEEN today AND today + x
 
-def add_follow_up(contact_id, last_contact_date, follow_up_interval, note=None):
-    cursor.execute('''
-        INSERT INTO follow_ups (
-            contact_id, last_contact_date, follow_up_interval, next_reminder_date, note
-        ) VALUES (?, ?, ?, DATE(?, '+' || ? || ' days'), ?)
-    ''', (contact_id, last_contact_date, follow_up_interval, last_contact_date, follow_up_interval, note))
-    conn.commit()
-
-4. Query Reminders
-🔹 For Today:
-
-def get_today_reminders():
-    cursor.execute('''
-        SELECT f.*, c.name, c.email
-        FROM follow_ups f
-        JOIN contacts c ON f.contact_id = c.id
-        WHERE f.next_reminder_date = DATE('now')
-    ''')
-    return cursor.fetchall()
-🔹 For This Week:
-
-def get_week_reminders():
-    cursor.execute('''
-        SELECT f.*, c.name, c.email
-        FROM follow_ups f
-        JOIN contacts c ON f.contact_id = c.id
-        WHERE f.next_reminder_date BETWEEN DATE('now') AND DATE('now', '+7 days')
-    ''')
-    return cursor.fetchall()
-
-5. Auto-Repeat Reminder After Completion
-
-def complete_follow_up(follow_up_id):
-    cursor.execute('''
-        UPDATE follow_ups
-        SET last_contact_date = DATE('now'),
-            next_reminder_date = DATE('now', '+' || follow_up_interval || ' days')
-        WHERE id = ?
-    ''', (follow_up_id,))
-    conn.commit()
-
-🧪 Example: Run Use Case
-
-# 1. Add contact
-john_id = add_contact("John Smith", "john@example.com")
-# 2. Add follow-up (starting from 2025-10-01 with 14-day interval)
-add_follow_up(john_id, '2025-10-01', 14, "Initial catch-up")
-# 3. Fetch today's reminders (e.g., 2025-10-15)
-print("Today's reminders:")
-for row in get_today_reminders():
-    print(row)
 """
