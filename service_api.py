@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional, List, Dict, Any
 
-from database_functions import (
+from data.database_functions import (
     add_user,
     add_contact,
     add_meeting,
@@ -15,6 +15,10 @@ from database_functions import (
     select,
 )
 
+from data.database_functions import (
+    AlreadyExistsError,
+    NotFoundError
+)
 
 def user_to_dict(user: User) -> Dict[str, Any]:
     return {

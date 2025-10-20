@@ -5,10 +5,21 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
 import service_api as svc
-from database_functions import AlreadyExistsError, NotFoundError
+from data.database_functions import AlreadyExistsError, NotFoundError
 
 
 app = FastAPI(title="Networking API", version="1.0.0")
+
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+# Serve the built frontend (the Vite build output)
+app.mount("/", StaticFiles(directory="dist", html=True), name="frontend")
+
+# Optional (explicit root handler — helps on some setups)
+@app.get("/")
+def root():
+    return FileResponse("dist/index.html")
 
 
 class UserCreate(BaseModel):
@@ -26,7 +37,6 @@ class ContactCreate(BaseModel):
     job_title: Optional[str] = None
     date_first_meeting: Optional[str] = None  # ISO date
     date_next_follow_up: Optional[str] = None  # ISO date
-
 
 class MeetingCreate(BaseModel):
     user_id: int
