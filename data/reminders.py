@@ -1,5 +1,5 @@
-#Working on it
-gist = """✅ Summary of Requirements
+#Working on it, don't really know how to code in SQL and didnt have much time to work on it
+ChatGPT_Summary = """Summary of Requirements                
 Feature	Solution
 Store reminders	Use follow_ups table
 Set follow-up interval	Store in follow_up_interval column
