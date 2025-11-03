@@ -204,21 +204,27 @@ elif DATABASE_URL.startswith("postgres://"):
 engine = create_engine(DATABASE_URL, echo=False, future=True)
 
 # Ensure SQLite enforces foreign keys (SQLite off by default)
+# Only execute PRAGMA commands for SQLite, not PostgreSQL
 @event.listens_for(engine, "connect")
 def _fk_pragma_on_connect(dbapi_connection, connection_record):
-    cur = dbapi_connection.cursor()
-    cur.execute("PRAGMA foreign_keys=ON")
-    cur.close()
+    # Only run PRAGMA for SQLite (sqlite:// URL scheme)
+    if DATABASE_URL.startswith("sqlite://"):
+        cur = dbapi_connection.cursor()
+        cur.execute("PRAGMA foreign_keys=ON")
+        cur.close()
 
 # (Optional) WAL mode for smoother concurrent reads
+# Only execute PRAGMA commands for SQLite, not PostgreSQL
 @event.listens_for(engine, "connect")
 def _wal_on_connect(dbapi_connection, connection_record):
-    try:
-        cur = dbapi_connection.cursor()
-        cur.execute("PRAGMA journal_mode=WAL")
-        cur.close()
-    except Exception:
-        pass
+    # Only run PRAGMA for SQLite (sqlite:// URL scheme)
+    if DATABASE_URL.startswith("sqlite://"):
+        try:
+            cur = dbapi_connection.cursor()
+            cur.execute("PRAGMA journal_mode=WAL")
+            cur.close()
+        except Exception:
+            pass
 
 Base.metadata.create_all(engine)
 
