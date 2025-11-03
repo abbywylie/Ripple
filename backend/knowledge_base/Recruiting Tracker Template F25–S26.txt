@@ -1,0 +1,22 @@
+﻿Recruiting Tracker Template F25–S26
+
+
+Company | Tier | Contact Name | Contact Role | LinkedIn | Email | Outreach 1 | Outreach 2 | Outreach 3 | Notes | Position Link | Position Deadline | Applied?
+
+
+Instructions:
+- Start with 5 companies
+- Each company should have at least 1 point of contact
+- Track each interaction with email/call notes
+- Use the following outreach pattern:
+  • Tier 1 = Dream: Send 3 messages total, 1.5–2 weeks apart
+  • Tier 2 = Great: Send 2 messages
+  • Tier 3 = Curious: 1 message ok
+- Record:
+  • Date of application
+  • Call notes
+  • Thank-you emails sent
+  • Deadlines for each position
+
+
+Use this tracker to stay on top of networking and job search progress.

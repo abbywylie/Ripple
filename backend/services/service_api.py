@@ -12,6 +12,10 @@ from models.database_functions import (
     update_contact,
     delete_contact,
     add_meeting,
+    update_meeting,
+    delete_meeting,
+    get_upcoming_meetings,
+    get_meetings_for_date,
     add_contact_for_user_email,
     add_meeting_by_emails,
     get_upcoming_follow_ups,
@@ -235,6 +239,7 @@ def create_meeting(
     location: Optional[str] = None,
     meeting_notes: Optional[str] = None,
     thank_you: bool = False,
+    follow_up_days: Optional[int] = None,
 ) -> Dict[str, Any]:
     dt = __import__("datetime")
     meeting = add_meeting(
@@ -247,8 +252,55 @@ def create_meeting(
         location=location,
         meeting_notes=meeting_notes,
         thank_you=thank_you,
+        follow_up_days=follow_up_days,
     )
     return meeting_to_dict(meeting)
+
+
+def update_meeting_service(
+    meeting_id: int,
+    user_id: int,
+    meeting_date: Optional[str] = None,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    meeting_type: Optional[str] = None,
+    location: Optional[str] = None,
+    meeting_notes: Optional[str] = None,
+    thank_you: Optional[bool] = None,
+) -> Dict[str, Any]:
+    """Update a meeting and return the updated meeting data."""
+    dt = __import__("datetime")
+    meeting = update_meeting(
+        meeting_id=meeting_id,
+        user_id=user_id,
+        meeting_date=None if not meeting_date else dt.date.fromisoformat(meeting_date),
+        start_time=None if not start_time else dt.time.fromisoformat(start_time),
+        end_time=None if not end_time else dt.time.fromisoformat(end_time),
+        meeting_type=meeting_type,
+        location=location,
+        meeting_notes=meeting_notes,
+        thank_you=thank_you,
+    )
+    return meeting_to_dict(meeting)
+
+
+def delete_meeting_service(meeting_id: int, user_id: int) -> Dict[str, Any]:
+    """Delete a meeting and return success status."""
+    success = delete_meeting(meeting_id=meeting_id, user_id=user_id)
+    return {"success": success, "message": "Meeting deleted successfully"}
+
+
+def get_upcoming_meetings_service(user_id: int, days: int = 30) -> List[Dict[str, Any]]:
+    """Get upcoming meetings for a user."""
+    meetings = get_upcoming_meetings(user_id=user_id, days_ahead=days)
+    return [meeting_to_dict(meeting) for meeting in meetings]
+
+
+def get_meetings_for_date_service(user_id: int, target_date: str) -> List[Dict[str, Any]]:
+    """Get meetings for a specific date."""
+    dt = __import__("datetime")
+    meetings = get_meetings_for_date(user_id=user_id, target_date=dt.date.fromisoformat(target_date))
+    return [meeting_to_dict(meeting) for meeting in meetings]
 
 
 def get_goals_for_user(user_id: int) -> List[Dict[str, Any]]:

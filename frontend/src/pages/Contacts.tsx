@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
-import { contactsApi, interactionsApi } from "@/lib/api";
+import { contactsApi, interactionsApi, meetingsApi } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -109,6 +109,7 @@ const Contacts = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [contacts, setContacts] = useState<any[]>([]);
+  const [meetings, setMeetings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -137,8 +138,14 @@ const Contacts = () => {
       if (user?.userId) {
         try {
           console.log('Loading contacts for user:', user.userId);
-          const contactsData = await contactsApi.getContacts(user.userId);
+          const [contactsData, meetingsData] = await Promise.all([
+            contactsApi.getContacts(user.userId),
+            meetingsApi.getUserMeetings(user.userId)
+          ]);
           console.log('Contacts loaded:', contactsData);
+          console.log('Meetings loaded:', meetingsData);
+          
+          setMeetings(Array.isArray(meetingsData) ? meetingsData : []);
           
           // Load interaction counts for each contact
           const contactsWithInteractions = await Promise.all(
@@ -366,16 +373,19 @@ const Contacts = () => {
 
   // Transform API data to match the UI format and filter by search query
   const transformedContacts = (contacts || [])
-    .map(contact => ({
-      ...contact,
-      role: contact?.job_title || 'Unknown',
-      phone: contact?.phone_number,
-      meetingCount: 0, // This would come from meetings API when integrated
-      lastContact: contact?.date_first_meeting || new Date().toISOString().split('T')[0],
-      nextFollowUp: contact?.date_next_follow_up || new Date().toISOString().split('T')[0],
-      thankYouSent: false, // This would be based on actual data
-      notes: "No notes yet" // This would come from notes field
-    }))
+    .map(contact => {
+      const contactMeetings = meetings.filter(m => m.contact_id === contact.contact_id);
+      return {
+        ...contact,
+        role: contact?.job_title || 'Unknown',
+        phone: contact?.phone_number,
+        meetingCount: contactMeetings.length,
+        lastContact: contact?.date_first_meeting || new Date().toISOString().split('T')[0],
+        nextFollowUp: contact?.date_next_follow_up || new Date().toISOString().split('T')[0],
+        thankYouSent: contactMeetings.some(m => m.thank_you), // Check if any meeting has thank you sent
+        notes: "No notes yet" // This would come from notes field
+      };
+    })
     .filter(contact => {
       if (!searchQuery.trim()) return true;
       if (!contact?.name) return false;

@@ -1,4 +1,4 @@
-import { ArrowLeft, Mail, Phone, Calendar, Clock, Plus, Edit, Trash2, Tag, FileText, User, Building2 } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Calendar, Clock, Plus, Edit, Trash2, Tag, FileText, User, Building2, Clipboard, Sparkles, CheckCircle, AlertCircle, CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +9,15 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
-import { contactsApi, interactionsApi } from "@/lib/api";
+import { contactsApi, interactionsApi, meetingsApi } from "@/lib/api";
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import MeetingList from "@/components/MeetingList";
 
 // Helper function to parse date strings as local dates to avoid timezone issues
 const parseLocalDate = (dateString: string): Date | null => {
@@ -37,6 +42,12 @@ const ContactDetail = () => {
   const [interactions, setInteractions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isInteractionDialogOpen, setIsInteractionDialogOpen] = useState(false);
+  const [isEmailPasteDialogOpen, setIsEmailPasteDialogOpen] = useState(false);
+  const [emailText, setEmailText] = useState("");
+  const [parsedEmail, setParsedEmail] = useState<any>(null);
+  const [isParsing, setIsParsing] = useState(false);
+  const [editingMeetingDetails, setEditingMeetingDetails] = useState<any>(null);
+  const [isEditMeetingDialogOpen, setIsEditMeetingDialogOpen] = useState(false);
   const [newInteraction, setNewInteraction] = useState({
     interaction_type: 'email',
     subject: '',
@@ -160,6 +171,98 @@ const ContactDetail = () => {
     }
   };
 
+  // Parse email thread
+  const handleParseEmail = async () => {
+    if (!emailText.trim()) return;
+    
+    try {
+      setIsParsing(true);
+      const result = await interactionsApi.parseEmail(emailText);
+      setParsedEmail(result);
+      toast.success('Email parsed successfully!');
+    } catch (error: any) {
+      console.error('Failed to parse email:', error);
+      console.error('Error details:', error?.response?.data || error?.message);
+      toast.error(`Failed to parse email: ${error?.response?.data?.detail || error?.message || 'Unknown error'}`);
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  // Log parsed email as interaction
+  const handleLogEmail = async () => {
+    if (!user?.userId || !contactId || !parsedEmail) return;
+    
+    try {
+      const result = await interactionsApi.logEmail(
+        user.userId,
+        parseInt(contactId),
+        emailText,
+        parsedEmail.suggested_tag
+      );
+      
+      toast.success('Email logged successfully!');
+      
+      // Reload interactions
+      const interactionsData = await interactionsApi.getInteractionsForContact(parseInt(contactId), user.userId);
+      setInteractions(Array.isArray(interactionsData) ? interactionsData : []);
+      
+      // Close dialog and reset
+      setIsEmailPasteDialogOpen(false);
+      setEmailText("");
+      setParsedEmail(null);
+    } catch (error) {
+      console.error('Failed to log email:', error);
+      toast.error('Failed to log email');
+    }
+  };
+
+  // Create meeting from parsed email details
+  const handleCreateMeetingFromEmail = async () => {
+    if (!user?.userId || !contactId) return;
+    
+    const meetingDetails = editingMeetingDetails || parsedEmail?.parsed_data.meeting_details;
+    if (!meetingDetails) {
+      toast.error('No meeting details found');
+      return;
+    }
+    
+    try {
+      // Parse date string to ISO format for database
+      let meetingDate = meetingDetails.date;
+      if (meetingDetails.date && typeof meetingDetails.date === 'string') {
+        try {
+          meetingDate = format(new Date(meetingDetails.date), 'yyyy-MM-dd');
+        } catch {
+          toast.error('Invalid date format');
+          return;
+        }
+      }
+      
+      const meetingData = {
+        user_id: user.userId,
+        contact_id: parseInt(contactId),
+        meeting_title: parsedEmail?.parsed_data.subject || 'Meeting',
+        meeting_date: meetingDate,
+        meeting_time: meetingDetails.time || '',
+        meeting_location: meetingDetails.location || '',
+        meeting_notes: `Meeting details from email${meetingDetails.platform ? ` - Platform: ${meetingDetails.platform}` : ''}`,
+        meeting_type: meetingDetails.platform?.toLowerCase() || 'in-person'
+      };
+      
+      await meetingsApi.createMeeting(meetingData);
+      
+      toast.success('Meeting added successfully!');
+      
+      // Don't close the dialog - let user also log the email if they want
+      // Just clear the editing state
+      setEditingMeetingDetails(null);
+    } catch (error: any) {
+      console.error('Failed to create meeting:', error);
+      toast.error(`Failed to create meeting: ${error?.response?.data?.detail || error?.message || 'Unknown error'}`);
+    }
+  };
+
   const getInteractionIcon = (type: string) => {
     switch (type.toLowerCase()) {
       case 'email':
@@ -232,14 +335,203 @@ const ContactDetail = () => {
           </div>
         </div>
         
-        <Dialog open={isInteractionDialogOpen} onOpenChange={setIsInteractionDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90">
-              <Plus className="h-4 w-4 mr-2" />
-              Log Interaction
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+        <div className="flex gap-2">
+          <Dialog open={isEmailPasteDialogOpen} onOpenChange={setIsEmailPasteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="border-primary text-primary hover:bg-primary/10">
+                <Clipboard className="h-4 w-4 mr-2" />
+                Paste Email
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Clipboard className="h-5 w-5 text-primary" />
+                  Paste Email Thread
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="email_text">Email Thread</Label>
+                  <Textarea
+                    id="email_text"
+                    value={emailText}
+                    onChange={(e) => setEmailText(e.target.value)}
+                    placeholder="Paste your email conversation here..."
+                    className="mt-2 font-mono text-sm"
+                    rows={12}
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Copy and paste the full email thread (with headers) for automatic parsing
+                  </p>
+                </div>
+
+                {!parsedEmail && (
+                  <Button onClick={handleParseEmail} disabled={!emailText.trim() || isParsing} className="w-full">
+                    {isParsing ? (
+                      <>Analyzing...</>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Parse Email
+                      </>
+                    )}
+                  </Button>
+                )}
+
+                {parsedEmail && (
+                  <div className="space-y-4 border rounded-lg p-4">
+                    {/* Parsed Info */}
+                    <div>
+                      <h4 className="font-semibold mb-2 flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        Parsed Information
+                      </h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Suggested Tag:</span>
+                          <Badge className="ml-2">{parsedEmail.suggested_tag}</Badge>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Message Count:</span>
+                          <span className="ml-2 font-medium">{parsedEmail.parsed_data.message_count}</span>
+                        </div>
+                        {parsedEmail.parsed_data.subject && (
+                          <div className="col-span-2">
+                            <span className="text-muted-foreground">Subject:</span>
+                            <span className="ml-2 font-medium">{parsedEmail.parsed_data.subject}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Meeting Details */}
+                    {parsedEmail.parsed_data.meeting_details && (
+                      <div className="border border-blue-200 bg-blue-50 rounded-lg p-4">
+                        <h4 className="font-semibold mb-3 flex items-center gap-2 text-blue-900">
+                          <Calendar className="h-4 w-4" />
+                          Meeting Detected
+                        </h4>
+                        <div className="grid gap-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground w-20">Date:</span>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant={"outline"}
+                                  className="w-full justify-start text-left font-normal bg-white"
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {editingMeetingDetails?.date || parsedEmail.parsed_data.meeting_details.date || "Pick a date"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <CalendarComponent
+                                  mode="single"
+                                  selected={editingMeetingDetails?.selectedDate}
+                                  onSelect={(date) => {
+                                    const formattedDate = date ? format(date, "MMMM d, yyyy") : '';
+                                    setEditingMeetingDetails({
+                                      ...(editingMeetingDetails || parsedEmail.parsed_data.meeting_details),
+                                      date: formattedDate,
+                                      selectedDate: date
+                                    });
+                                  }}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground w-20">Time:</span>
+                            <Input
+                              value={editingMeetingDetails?.time || parsedEmail.parsed_data.meeting_details.time || ''}
+                              onChange={(e) => setEditingMeetingDetails({...(editingMeetingDetails || parsedEmail.parsed_data.meeting_details), time: e.target.value})}
+                              placeholder="e.g., 3:00 PM"
+                              className="bg-white"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground w-20">Location:</span>
+                            <Input
+                              value={editingMeetingDetails?.location || parsedEmail.parsed_data.meeting_details.location || ''}
+                              onChange={(e) => setEditingMeetingDetails({...(editingMeetingDetails || parsedEmail.parsed_data.meeting_details), location: e.target.value})}
+                              placeholder="e.g., Blue Bottle Coffee"
+                              className="bg-white"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground w-20">Platform:</span>
+                            <Input
+                              value={editingMeetingDetails?.platform || parsedEmail.parsed_data.meeting_details.platform || ''}
+                              onChange={(e) => setEditingMeetingDetails({...(editingMeetingDetails || parsedEmail.parsed_data.meeting_details), platform: e.target.value})}
+                              placeholder="e.g., Zoom, Google Meet"
+                              className="bg-white"
+                            />
+                          </div>
+                        </div>
+                        <Button
+                          onClick={handleCreateMeetingFromEmail}
+                          className="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Add to Calendar
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Smart Suggestions */}
+                    {parsedEmail.suggestions && parsedEmail.suggestions.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold mb-2 flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-amber-600" />
+                          Smart Suggestions
+                        </h4>
+                        <div className="space-y-2">
+                          {parsedEmail.suggestions.map((suggestion: string, index: number) => (
+                            <div key={index} className="flex items-start gap-2 p-2 bg-amber-50 rounded-md border border-amber-200">
+                              <Sparkles className="h-4 w-4 text-amber-600 mt-0.5" />
+                              <p className="text-sm text-amber-900">{suggestion}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 pt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setParsedEmail(null);
+                          setEmailText("");
+                        }}
+                        className="flex-1"
+                      >
+                        Clear & Start Over
+                      </Button>
+                      <Button
+                        onClick={handleLogEmail}
+                        className="flex-1 bg-primary hover:bg-primary/90"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Log This Email
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isInteractionDialogOpen} onOpenChange={setIsInteractionDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90">
+                <Plus className="h-4 w-4 mr-2" />
+                Log Interaction
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Log New Interaction</DialogTitle>
             </DialogHeader>
@@ -390,6 +682,7 @@ const ContactDetail = () => {
             </div>
           </DialogContent>
         </Dialog>
+      </div>
       </div>
 
       {/* Contact Info */}
@@ -551,6 +844,17 @@ const ContactDetail = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Meetings */}
+      {user?.userId && contactId && (
+        <MeetingList 
+          contactId={parseInt(contactId)} 
+          userId={user.userId}
+          onMeetingChange={() => {
+            // Optionally reload contact data if needed
+          }}
+        />
+      )}
     </div>
   );
 };

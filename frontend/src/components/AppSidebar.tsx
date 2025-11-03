@@ -1,4 +1,4 @@
-import { Home, Users, Target, Bell, TrendingUp, User } from "lucide-react";
+import { Home, Users, Target, Bell, TrendingUp, User, Calendar } from "lucide-react";
 import rippleLogo from "@/assets/ripple-logo.png";
 import { NavLink } from "react-router-dom";
 import {
@@ -14,6 +14,7 @@ import {
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Contacts", url: "/contacts", icon: Users },
+  { title: "Meetings", url: "/meetings", icon: Calendar },
   { title: "Goals", url: "/goals", icon: Target },
   { title: "Reminders", url: "/reminders", icon: Bell },
   { title: "Progress", url: "/progress", icon: TrendingUp },

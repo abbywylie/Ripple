@@ -14,11 +14,13 @@ import ProfilePage from "./pages/ProfilePage";
 import Dashboard from "./pages/Dashboard";
 import Contacts from "./pages/Contacts";
 import ContactDetail from "./pages/ContactDetail";
+import Meetings from "./pages/Meetings";
 import Goals from "./pages/Goals";
 import Reminders from "./pages/Reminders";
 import ProgressPage from "./pages/Progress";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import RAGAssistant from "./components/RAGAssistant";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +29,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => (
     <div className="min-h-screen flex w-full">
       <AppSidebar />
       <main className="flex-1 overflow-auto">{children}</main>
+      <RAGAssistant />
     </div>
   </SidebarProvider>
 );
@@ -46,6 +49,7 @@ const App = () => (
             <Route path="/dashboard" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
             <Route path="/contacts" element={<ProtectedRoute><AppLayout><Contacts /></AppLayout></ProtectedRoute>} />
             <Route path="/contacts/:contactId" element={<ProtectedRoute><AppLayout><ContactDetail /></AppLayout></ProtectedRoute>} />
+            <Route path="/meetings" element={<ProtectedRoute><AppLayout><Meetings /></AppLayout></ProtectedRoute>} />
             <Route path="/goals" element={<ProtectedRoute><AppLayout><Goals /></AppLayout></ProtectedRoute>} />
             <Route path="/reminders" element={<ProtectedRoute><AppLayout><Reminders /></AppLayout></ProtectedRoute>} />
             <Route path="/progress" element={<ProtectedRoute><AppLayout><ProgressPage /></AppLayout></ProtectedRoute>} />

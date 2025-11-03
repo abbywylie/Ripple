@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import bcrypt
@@ -14,7 +15,9 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from services.service_api import create_user, create_contact, update_contact_service, delete_contact_service, create_meeting, get_user_by_email, list_contacts_for_user, list_meetings_for_contact, list_meetings_for_user, get_upcoming_follow_ups_for_user, get_goals_for_user, create_goal, update_goal_service, delete_goal_service, get_goal_steps, create_goal_step, update_goal_step_service, delete_goal_step_service, get_interactions_for_contact, get_interactions_for_user, create_interaction, update_interaction_service, delete_interaction_service, get_overdue_follow_ups_for_user, get_upcoming_follow_ups_interactions_for_user
+from services.service_api import create_user, create_contact, update_contact_service, delete_contact_service, create_meeting, update_meeting_service, delete_meeting_service, get_upcoming_meetings_service, get_meetings_for_date_service, get_user_by_email, list_contacts_for_user, list_meetings_for_contact, list_meetings_for_user, get_upcoming_follow_ups_for_user, get_goals_for_user, create_goal, update_goal_service, delete_goal_service, get_goal_steps, create_goal_step, update_goal_step_service, delete_goal_step_service, get_interactions_for_contact, get_interactions_for_user, create_interaction, update_interaction_service, delete_interaction_service, get_overdue_follow_ups_for_user, get_upcoming_follow_ups_interactions_for_user
+from services.email_parser import parse_email_thread, suggest_actions, generate_interaction_tag
+from services.rag_service import answer_rag_question
 from models.database_functions import AlreadyExistsError, NotFoundError, get_session, User
 
 
@@ -116,6 +119,17 @@ class MeetingCreate(BaseModel):
     location: Optional[str] = None
     meeting_notes: Optional[str] = None
     thank_you: bool = False
+    follow_up_days: Optional[int] = None
+
+class MeetingUpdate(BaseModel):
+    user_id: int
+    meeting_date: Optional[str] = None  # ISO date
+    start_time: Optional[str] = None    # ISO time
+    end_time: Optional[str] = None      # ISO time
+    meeting_type: Optional[str] = None
+    location: Optional[str] = None
+    meeting_notes: Optional[str] = None
+    thank_you: Optional[bool] = None
 
 class GoalCreate(BaseModel):
     user_id: int
@@ -184,6 +198,19 @@ class InteractionUpdate(BaseModel):
 class InteractionDelete(BaseModel):
     interaction_id: int
     user_id: int
+
+class EmailParseRequest(BaseModel):
+    email_text: str
+
+class EmailLogRequest(BaseModel):
+    user_id: int
+    contact_id: int
+    email_text: str
+    custom_tag: Optional[str] = None
+
+class RAGQueryRequest(BaseModel):
+    query: str
+    user_id: Optional[int] = None
 
 
 @app.post("/users", response_model=dict)
@@ -306,6 +333,22 @@ def create_meeting_endpoint(payload: MeetingCreate):
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@app.put("/meetings/{meeting_id}", response_model=dict)
+def update_meeting_endpoint(meeting_id: int, payload: MeetingUpdate):
+    try:
+        return update_meeting_service(meeting_id=meeting_id, **payload.dict())
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.delete("/meetings/{meeting_id}", response_model=dict)
+def delete_meeting_endpoint(meeting_id: int, user_id: int):
+    try:
+        return delete_meeting_service(meeting_id=meeting_id, user_id=user_id)
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 @app.get("/contacts/{contact_id}/meetings", response_model=List[dict])
 def list_meetings_endpoint(contact_id: int):
     return list_meetings_for_contact(contact_id)
@@ -314,6 +357,16 @@ def list_meetings_endpoint(contact_id: int):
 @app.get("/users/{user_id}/meetings", response_model=List[dict])
 def list_user_meetings_endpoint(user_id: int):
     return list_meetings_for_user(user_id)
+
+
+@app.get("/users/{user_id}/meetings/upcoming", response_model=List[dict])
+def get_upcoming_meetings_endpoint(user_id: int, days: int = 30):
+    return get_upcoming_meetings_service(user_id=user_id, days=days)
+
+
+@app.get("/users/{user_id}/meetings/date/{target_date}", response_model=List[dict])
+def get_meetings_for_date_endpoint(user_id: int, target_date: str):
+    return get_meetings_for_date_service(user_id=user_id, target_date=target_date)
 
 
 @app.get("/users/{user_id}/follow-ups", response_model=List[dict])
@@ -422,6 +475,61 @@ def get_overdue_follow_ups_endpoint(user_id: int):
 @app.get("/users/{user_id}/upcoming-interaction-follow-ups", response_model=List[dict])
 def get_upcoming_interaction_follow_ups_endpoint(user_id: int, days: int = 7):
     return get_upcoming_follow_ups_interactions_for_user(user_id, days)
+
+
+# Email Thread Parsing Endpoints
+@app.post("/api/parse-email", response_model=dict)
+def parse_email_endpoint(payload: EmailParseRequest):
+    """Parse an email thread to extract key information."""
+    parsed_data = parse_email_thread(payload.email_text)
+    suggestions = suggest_actions(parsed_data)
+    tag = generate_interaction_tag(parsed_data)
+    
+    return {
+        "parsed_data": parsed_data,
+        "suggestions": suggestions,
+        "suggested_tag": tag
+    }
+
+
+@app.post("/api/log-email", response_model=dict)
+def log_email_endpoint(payload: EmailLogRequest):
+    """Log a parsed email thread as an interaction."""
+    try:
+        parsed_data = parse_email_thread(payload.email_text)
+        tag = payload.custom_tag or generate_interaction_tag(parsed_data)
+        
+        # Create interaction from parsed email
+        interaction_data = {
+            "user_id": payload.user_id,
+            "contact_id": payload.contact_id,
+            "interaction_type": "email",
+            "subject": parsed_data.get('subject') or 'Email Thread',
+            "content": payload.email_text,
+            "tag": tag,
+            "direction": "outbound" if not parsed_data.get('is_reply') else "inbound"
+        }
+        
+        result = create_interaction(**interaction_data)
+        
+        return {
+            "success": True,
+            "interaction": result,
+            "suggestions": suggest_actions(parsed_data)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# RAG Assistant Endpoint
+@app.post("/api/rag/query", response_model=dict)
+def rag_query_endpoint(payload: RAGQueryRequest):
+    """Answer networking and recruiting questions using RAG."""
+    try:
+        result = answer_rag_question(payload.query)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Serve the built frontend (the Vite build output) - MUST be after all API routes

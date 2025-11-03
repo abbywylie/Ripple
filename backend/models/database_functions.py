@@ -34,6 +34,7 @@ class User(Base):
     meetings: Mapped[list["Meeting"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     goals: Mapped[list["Goal"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     interactions: Mapped[list["Interaction"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    calendar_integrations: Mapped[list["CalendarIntegration"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class Contact(Base):
@@ -149,6 +150,42 @@ class Interaction(Base):
     # relationships
     user: Mapped["User"] = relationship(back_populates="interactions")
     contact: Mapped["Contact"] = relationship(back_populates="interactions")
+
+
+# Calendar Integration Models
+class CalendarIntegration(Base):
+    __tablename__ = "calendar_integrations"
+
+    integration_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    
+    provider: Mapped[str] = mapped_column(String(20), nullable=False)  # 'google', 'outlook', 'icloud'
+    access_token: Mapped[Optional[str]] = mapped_column(Text)
+    refresh_token: Mapped[Optional[str]] = mapped_column(Text)
+    calendar_id: Mapped[Optional[str]] = mapped_column(String(500))  # External calendar ID
+    
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_sync_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # relationships
+    user: Mapped["User"] = relationship(back_populates="calendar_integrations")
+    synced_events: Mapped[list["SyncedEvent"]] = relationship(back_populates="integration", cascade="all, delete-orphan")
+
+
+class SyncedEvent(Base):
+    __tablename__ = "synced_events"
+
+    sync_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    meeting_id: Mapped[int] = mapped_column(ForeignKey("meetings.meeting_id", ondelete="CASCADE"), nullable=False)
+    integration_id: Mapped[int] = mapped_column(ForeignKey("calendar_integrations.integration_id", ondelete="CASCADE"), nullable=False)
+    
+    external_event_id: Mapped[str] = mapped_column(String(500), nullable=False)  # Event ID in external calendar
+    last_modified_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # relationships
+    integration: Mapped["CalendarIntegration"] = relationship(back_populates="synced_events")
 
 
 # ----- Engine / DB init -----
@@ -323,6 +360,7 @@ def add_meeting(
     location: Optional[str] = None,
     meeting_notes: Optional[str] = None,
     thank_you: bool = False,
+    follow_up_days: Optional[int] = None,
 ) -> Meeting:
     """Create a meeting row tied to a user and a contact."""
     with get_session() as s:
@@ -343,9 +381,103 @@ def add_meeting(
             thank_you=thank_you,
         )
         s.add(mtg)
+        
+        # Auto-update follow-up date if specified
+        if follow_up_days:
+            contact = s.get(Contact, contact_id)
+            if contact:
+                contact.date_next_follow_up = (meeting_date or date.today()) + timedelta(days=follow_up_days)
+        
         s.flush()
         s.refresh(mtg)
         return mtg
+
+
+def update_meeting(
+    *,
+    meeting_id: int,
+    user_id: int,
+    meeting_date: Optional[date] = None,
+    start_time: Optional[time] = None,
+    end_time: Optional[time] = None,
+    meeting_type: Optional[str] = None,
+    location: Optional[str] = None,
+    meeting_notes: Optional[str] = None,
+    thank_you: Optional[bool] = None,
+) -> Meeting:
+    """Update a meeting."""
+    with get_session() as s:
+        meeting = s.execute(select(Meeting).where(
+            Meeting.meeting_id == meeting_id,
+            Meeting.user_id == user_id
+        )).scalar_one_or_none()
+        
+        if not meeting:
+            raise NotFoundError(f"meeting {meeting_id} not found for user {user_id}")
+
+        # Update only provided fields
+        if meeting_date is not None:
+            meeting.meeting_date = meeting_date
+        if start_time is not None:
+            meeting.start_time = start_time
+        if end_time is not None:
+            meeting.end_time = end_time
+        if meeting_type is not None:
+            meeting.meeting_type = meeting_type
+        if location is not None:
+            meeting.location = location
+        if meeting_notes is not None:
+            meeting.meeting_notes = meeting_notes
+        if thank_you is not None:
+            meeting.thank_you = thank_you
+
+        s.flush()
+        s.refresh(meeting)
+        return meeting
+
+
+def delete_meeting(*, meeting_id: int, user_id: int) -> bool:
+    """Delete a meeting."""
+    with get_session() as s:
+        meeting = s.execute(select(Meeting).where(
+            Meeting.meeting_id == meeting_id,
+            Meeting.user_id == user_id
+        )).scalar_one_or_none()
+        
+        if not meeting:
+            raise NotFoundError(f"meeting {meeting_id} not found for user {user_id}")
+
+        s.delete(meeting)
+        s.flush()
+        return True
+
+
+def get_upcoming_meetings(user_id: int, days_ahead: int = 30) -> list[Meeting]:
+    """Get meetings within the next specified days."""
+    today = date.today()
+    upcoming = today + timedelta(days=days_ahead)
+    
+    with get_session() as s:
+        results = s.execute(
+            select(Meeting)
+            .where(Meeting.user_id == user_id)
+            .where(Meeting.meeting_date >= today)
+            .where(Meeting.meeting_date <= upcoming)
+            .order_by(Meeting.meeting_date, Meeting.start_time)
+        ).scalars().all()
+        return list(results)
+
+
+def get_meetings_for_date(user_id: int, target_date: date) -> list[Meeting]:
+    """Get meetings for a specific date."""
+    with get_session() as s:
+        results = s.execute(
+            select(Meeting)
+            .where(Meeting.user_id == user_id)
+            .where(Meeting.meeting_date == target_date)
+            .order_by(Meeting.start_time)
+        ).scalars().all()
+        return list(results)
 
 
 # ---------- GOALS ----------
