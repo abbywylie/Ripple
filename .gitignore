@@ -21,6 +21,9 @@ wheels/
 *.egg
 MANIFEST
 
+# Exception: Don't ignore frontend lib directory
+!frontend/src/lib/
+
 # Virtual environment
 .venv/
 venv/

@@ -49,7 +49,6 @@ class Contact(Base):
     company: Mapped[Optional[str]] = mapped_column(String(200))
     job_title: Mapped[Optional[str]] = mapped_column(String(200))
     category: Mapped[Optional[str]] = mapped_column(String(100), default="Professional")  # Professional, Personal, Academic, etc.
-    tier: Mapped[Optional[str]] = mapped_column(String(20), default="Tier 3")  # Tier 1 (Dream), Tier 2 (Great), Tier 3 (Curious)
 
     date_first_meeting: Mapped[Optional[date]] = mapped_column(Date)
     date_next_follow_up: Mapped[Optional[date]] = mapped_column(Date)
@@ -193,38 +192,24 @@ class SyncedEvent(Base):
 # Use environment variable for database URL, fallback to SQLite for local development
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{Path(__file__).parent / 'networking.db'}")
 
-# Replace postgresql:// or postgres:// with postgresql+psycopg:// to use psycopg v3 driver (compatible with Python 3.13)
-# This is needed because SQLAlchemy defaults to psycopg2, but we're using psycopg (v3)
-# Render and many services use "postgres://" while others use "postgresql://" - handle both
-if DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
-elif DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
-
 engine = create_engine(DATABASE_URL, echo=False, future=True)
 
 # Ensure SQLite enforces foreign keys (SQLite off by default)
-# Only execute PRAGMA commands for SQLite, not PostgreSQL
 @event.listens_for(engine, "connect")
 def _fk_pragma_on_connect(dbapi_connection, connection_record):
-    # Only run PRAGMA for SQLite (sqlite:// URL scheme)
-    if DATABASE_URL.startswith("sqlite://"):
-        cur = dbapi_connection.cursor()
-        cur.execute("PRAGMA foreign_keys=ON")
-        cur.close()
+    cur = dbapi_connection.cursor()
+    cur.execute("PRAGMA foreign_keys=ON")
+    cur.close()
 
 # (Optional) WAL mode for smoother concurrent reads
-# Only execute PRAGMA commands for SQLite, not PostgreSQL
 @event.listens_for(engine, "connect")
 def _wal_on_connect(dbapi_connection, connection_record):
-    # Only run PRAGMA for SQLite (sqlite:// URL scheme)
-    if DATABASE_URL.startswith("sqlite://"):
-        try:
-            cur = dbapi_connection.cursor()
-            cur.execute("PRAGMA journal_mode=WAL")
-            cur.close()
-        except Exception:
-            pass
+    try:
+        cur = dbapi_connection.cursor()
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.close()
+    except Exception:
+        pass
 
 Base.metadata.create_all(engine)
 
@@ -266,65 +251,6 @@ def add_user(*, email: str, password_hash: str, name: str) -> User:
 
 
 # ---------- CONTACTS ----------
-def calculate_follow_up_date(tier: Optional[str] = None, category: Optional[str] = None) -> date:
-    """Calculate default follow-up date based on tier, category, and current date."""
-    today = date.today()
-    
-    # Follow-up timing matrix based on industry best practices:
-    # Different relationship types have different follow-up norms
-    
-    # Tier 1 (Dream) - Most important contacts, follow up more frequently
-    # Professional Tier 1: First 48 hours are critical for solidifying impression
-    if tier == "Tier 1":
-        if category == "Professional":
-            return today + timedelta(days=2)  # Critical first 48 hours (consultant recommendation)
-        elif category == "Mentor":
-            return today + timedelta(days=1)  # Thank you within 24 hours, anchor next check-in
-        elif category == "Academic":
-            return today + timedelta(days=2)  # Academic circles: faster initial follow-up
-        elif category == "Industry":
-            return today + timedelta(days=2)  # Similar to professional - first 48h critical
-        elif category == "Personal":
-            return today + timedelta(days=1)  # Personal connections expect faster follow-up
-        elif category == "Friend":
-            return today + timedelta(days=1)  # Friends: respond ASAP
-        else:
-            return today + timedelta(days=2)  # Default
-    
-    # Tier 2 (Great) - Good opportunities, standard follow-up
-    elif tier == "Tier 2":
-        if category == "Professional":
-            return today + timedelta(days=2)  # Still critical first 48 hours
-        elif category == "Mentor":
-            return today + timedelta(days=3)  # Give slightly more space
-        elif category == "Academic":
-            return today + timedelta(days=2)  # Academic: responsive but less urgent
-        elif category == "Industry":
-            return today + timedelta(days=2)  # Industry: first 48h still important
-        elif category == "Personal":
-            return today + timedelta(days=1)  # Still friendly and prompt
-        elif category == "Friend":
-            return today + timedelta(days=1)  # Friends: respond ASAP
-        else:
-            return today + timedelta(days=2)  # Default
-    
-    # Tier 3 (Curious) - Exploratory, less frequent follow-up
-    else:  # Tier 3 or default
-        if category == "Professional":
-            return today + timedelta(days=3)  # Still courteous but less urgent
-        elif category == "Mentor":
-            return today + timedelta(days=7)  # Give space
-        elif category == "Academic":
-            return today + timedelta(days=3)  # Academic: prompt but brief
-        elif category == "Industry":
-            return today + timedelta(days=3)  # Industry: courteous follow-up
-        elif category == "Personal":
-            return today + timedelta(days=2)  # Still maintain connection
-        elif category == "Friend":
-            return today + timedelta(days=1)  # Friends always get priority
-        else:
-            return today + timedelta(days=3)  # Default
-
 def add_contact(
     *,
     user_id: int,
@@ -334,7 +260,6 @@ def add_contact(
     company: Optional[str] = None,
     job_title: Optional[str] = None,
     category: Optional[str] = "Professional",
-    tier: Optional[str] = "Tier 3",
     date_first_meeting: Optional[date] = None,
     date_next_follow_up: Optional[date] = None,
 ) -> Contact:
@@ -342,10 +267,6 @@ def add_contact(
     with get_session() as s:
         if not s.get(User, user_id):
             raise NotFoundError(f"user {user_id} not found")
-
-        # Auto-calculate follow-up date if not provided
-        if date_next_follow_up is None:
-            date_next_follow_up = calculate_follow_up_date(tier, category)
 
         contact = Contact(
             user_id=user_id,
@@ -355,7 +276,6 @@ def add_contact(
             company=company,
             job_title=job_title,
             category=category,
-            tier=tier,
             date_first_meeting=date_first_meeting,
             date_next_follow_up=date_next_follow_up,
             date_created=date.today(),
@@ -376,7 +296,6 @@ def update_contact(
     company: Optional[str] = None,
     job_title: Optional[str] = None,
     category: Optional[str] = None,
-    tier: Optional[str] = None,
     date_first_meeting: Optional[date] = None,
     date_next_follow_up: Optional[date] = None,
 ) -> Contact:
@@ -403,8 +322,6 @@ def update_contact(
             contact.job_title = job_title
         if category is not None:
             contact.category = category
-        if tier is not None:
-            contact.tier = tier
         if date_first_meeting is not None:
             contact.date_first_meeting = date_first_meeting
         if date_next_follow_up is not None:
