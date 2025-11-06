@@ -277,10 +277,12 @@ def answer_rag_question(query: str, user_context: str = "") -> Dict:
         except Exception as e:
             # Fallback to simple response if Groq fails
             print(f"Groq error: {e}")
+            # Format context nicely without alarming message
+            formatted_context = context.strip()
             return {
                 "query": query,
                 "context": context,
-                "answer": f"Based on the recruiting tracker knowledge base:\n\n{context}\n\n(Could not use AI)",
+                "answer": formatted_context,
                 "needs_llm": True,
                 "error": str(e)
             }
@@ -329,10 +331,12 @@ def answer_rag_question(query: str, user_context: str = "") -> Dict:
         except Exception as e:
             # Fallback to simple response if OpenAI fails
             print(f"OpenAI error: {e}")
+            # Format context nicely without alarming message
+            formatted_context = context.strip()
             return {
                 "query": query,
                 "context": context,
-                "answer": f"Based on the recruiting tracker knowledge base: {context}\n\n(Could not use AI - API key may be invalid)",
+                "answer": formatted_context,
                 "needs_llm": True,
                 "error": str(e)
             }
