@@ -3,11 +3,24 @@ RAG (Retrieval-Augmented Generation) Service
 Helps students with networking and recruiting questions using the recruiting tracker template
 """
 import os
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from pathlib import Path
 from dotenv import load_dotenv
 import glob
 import time
+import math
+
+try:
+    import numpy as _np  # type: ignore
+except Exception:
+    _np = None  # Fallback handled when embeddings not available
+
+try:
+    from sklearn.feature_extraction.text import TfidfVectorizer  # type: ignore
+    from sklearn.metrics.pairwise import cosine_similarity  # type: ignore
+except Exception:
+    TfidfVectorizer = None
+    cosine_similarity = None
 
 # Load environment variables from .env file
 env_path = Path(__file__).parent.parent / '.env'
@@ -65,11 +78,19 @@ def load_knowledge_base_from_folder() -> Dict[str, str]:
 KB_FILES: Dict[str, str] = load_knowledge_base_from_folder()
 KB_LAST_MTIME: float = _kb_latest_mtime()
 
-# Combined knowledge base text
+# Chunked KB and vector index (rebuilt on change)
+KB_CHUNKS: List[Dict[str, str]] = []  # {id, source, text}
+_EMB_MATRIX = None  # type: ignore
+_TFIDF = None  # type: ignore
+
+# Initial index build
 if KB_FILES:
-    KNOWLEDGE_BASE = "\n\n".join([content for _, content in KB_FILES.items() if content])
-else:
-    KNOWLEDGE_BASE = ""
+    def _init_index_once():
+        try:
+            _rebuild_index()
+        except Exception:
+            pass
+    _init_index_once()
 
 
 def ensure_kb_up_to_date() -> None:
@@ -78,13 +99,8 @@ def ensure_kb_up_to_date() -> None:
     current_mtime = _kb_latest_mtime()
     if current_mtime and current_mtime > KB_LAST_MTIME:
         files = load_knowledge_base_from_folder()
-        if files:  # Only switch if we successfully read something
-            KB_FILES = files
-            KNOWLEDGE_BASE = "\n\n".join([content for _, content in KB_FILES.items() if content])
-        else:
-            # If folder became empty, leave KB empty
-            KB_FILES = {}
-            KNOWLEDGE_BASE = ""
+        KB_FILES = files or {}
+        _rebuild_index()
         KB_LAST_MTIME = current_mtime
 
 
@@ -98,27 +114,10 @@ def get_relevant_context(query: str) -> str:
 
     query_lower = query.lower()
     
-    # If we have on-disk KB files, prefer simple keyword retrieval across files
-    if KB_FILES:
-        relevant_contexts: List[str] = []
-        # Very simple heuristic: include files that contain any query keyword
-        keywords = [w for w in query_lower.split() if w]
-        for name, content in KB_FILES.items():
-            content_lower = content.lower()
-            if any(k in query_lower or k in content_lower for k in keywords):
-                relevant_contexts.append(content)
-
-        # If nothing matched, try a broader substring match using query words
-        if not relevant_contexts:
-            for name, content in KB_FILES.items():
-                if any(word and word in content.lower() for word in query_lower.split()):
-                    relevant_contexts.append(content)
-
-        # If still nothing, return combined KB (may be empty)
-        if not relevant_contexts:
-            return KNOWLEDGE_BASE
-
-        return "\n\n".join(relevant_contexts)
+    # Semantic retrieval over chunk index
+    if KB_CHUNKS:
+        chunks = retrieve_context(query_lower, k=5)
+        return "\n\n".join(c["text"] for c in chunks)
     
     # If no KB files present, return empty string
     return ""
@@ -145,6 +144,10 @@ def answer_rag_question(query: str, user_context: str = "") -> Dict:
             "needs_llm": True
         }
     
+    # Detect intent and pick template
+    intent = _detect_intent(query)
+    template_hint = _template_hint(intent)
+
     # Try Groq first (free and fast!)
     if USE_GROQ:
         try:
@@ -153,30 +156,10 @@ def answer_rag_question(query: str, user_context: str = "") -> Dict:
             client = groq.Groq(api_key=GROQ_API_KEY)
             
             response = client.chat.completions.create(
-                model="llama-3.1-8b-instant",  # Fast and free
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a friendly, knowledgeable networking coach."
-                            " Use only the provided knowledge base for facts."
-                            " Be concise and actionable. Answer in 3–5 bullet points max."
-                            " Do not paste long passages from the KB; summarize in your own words."
-                            " Use a warm, encouraging tone."
-                        )
-                    },
-                    {
-                        "role": "user",
-                        "content": (
-                            f"Knowledge Base:\n{context}\n\n"
-                            f"Question: {query}\n\n"
-                            "Please give concise, coach-style guidance based only on the KB above."
-                            " 3–5 bullets, short sentences, no long quotes."
-                        )
-                    }
-                ],
+                model="llama-3.1-8b-instant",
+                messages=_build_messages(query, context, intent, template_hint),
                 temperature=0.4,
-                max_tokens=180
+                max_tokens=220
             )
             
             answer = response.choices[0].message.content
@@ -210,27 +193,9 @@ def answer_rag_question(query: str, user_context: str = "") -> Dict:
             
             response = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a concise, encouraging networking coach."
-                            " Only use the provided knowledge base."
-                            " Respond in 3–5 bullet points maximum and avoid quoting large chunks."
-                        )
-                    },
-                    {
-                        "role": "user",
-                        "content": (
-                            f"Knowledge Base:\n{context}\n\n"
-                            f"Question: {query}\n\n"
-                            "Summarize guidance in 3–5 short bullets, personable and actionable,"
-                            " without long quotes, based strictly on the KB."
-                        )
-                    }
-                ],
+                messages=_build_messages(query, context, intent, template_hint),
                 temperature=0.4,
-                max_tokens=180
+                max_tokens=220
             )
             
             answer = response.choices[0].message.content
@@ -380,4 +345,167 @@ def _make_concise_answer(query: str, context: str) -> str:
         bullets = bullets[:5]
 
     return "\n".join([f"- {b}" for b in bullets[:5]])
+
+
+# ---------------------------
+# Semantic Retrieval Utilities
+# ---------------------------
+
+def _rebuild_index() -> None:
+    """Build chunked KB and vector index."""
+    global KB_CHUNKS, _EMB_MATRIX, _TFIDF
+    KB_CHUNKS = []
+    texts: List[str] = []
+    if not KB_FILES:
+        _EMB_MATRIX = None
+        _TFIDF = None
+        return
+    for name, content in KB_FILES.items():
+        for idx, chunk in enumerate(_chunk_text(content)):
+            KB_CHUNKS.append({"id": f"{name}-{idx}", "source": name, "text": chunk})
+            texts.append(chunk)
+    # Embeddings: prefer OpenAI, else TF-IDF
+    if USE_OPENAI:
+        embs = _embed_texts_openai(texts)
+        _EMB_MATRIX = embs
+        _TFIDF = None
+    else:
+        if TfidfVectorizer is None:
+            _EMB_MATRIX = None
+            _TFIDF = None
+        else:
+            _TFIDF = TfidfVectorizer(max_features=20000, ngram_range=(1,2))
+            _EMB_MATRIX = _TFIDF.fit_transform(texts)
+
+
+def _chunk_text(text: str, max_len: int = 600, overlap: int = 80) -> List[str]:
+    """Split text into overlapping chunks by paragraphs and size."""
+    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+    chunks: List[str] = []
+    for para in paragraphs:
+        if len(para) <= max_len:
+            chunks.append(para)
+        else:
+            start = 0
+            while start < len(para):
+                end = min(len(para), start + max_len)
+                chunk = para[start:end]
+                chunks.append(chunk)
+                if end == len(para):
+                    break
+                start = max(0, end - overlap)
+    return chunks
+
+
+def _embed_texts_openai(texts: List[str]):
+    try:
+        import openai  # type: ignore
+        openai.api_key = OPENAI_API_KEY
+        # Batch embed; for simplicity, do single call per text (could batch optimize)
+        vectors = []
+        for t in texts:
+            resp = openai.embeddings.create(model="text-embedding-3-small", input=t)
+            vectors.append(resp.data[0].embedding)
+        if _np is not None:
+            return _np.array(vectors)
+        return vectors
+    except Exception:
+        return None
+
+
+def _embed_query(query: str):
+    if USE_OPENAI:
+        try:
+            import openai  # type: ignore
+            openai.api_key = OPENAI_API_KEY
+            resp = openai.embeddings.create(model="text-embedding-3-small", input=query)
+            vec = resp.data[0].embedding
+            if _np is not None:
+                return _np.array(vec).reshape(1, -1)
+            return [vec]
+        except Exception:
+            pass
+    # TF-IDF fallback
+    if _TFIDF is not None:
+        return _TFIDF.transform([query])
+    return None
+
+
+def retrieve_context(query: str, k: int = 5) -> List[Dict[str, str]]:
+    if not KB_CHUNKS:
+        return []
+    q_vec = _embed_query(query)
+    if q_vec is None or _EMB_MATRIX is None:
+        # No embeddings available; return first k chunks
+        return KB_CHUNKS[:k]
+    try:
+        if _np is not None and isinstance(_EMB_MATRIX, _np.ndarray):
+            # cosine similarity manually
+            a = q_vec / ( _np.linalg.norm(q_vec) + 1e-12 )
+            b = _EMB_MATRIX / ( _np.linalg.norm(_EMB_MATRIX, axis=1, keepdims=True) + 1e-12 )
+            sims = (a @ b.T).flatten()
+        else:
+            # sparse matrix (TF-IDF) path
+            sims = cosine_similarity(q_vec, _EMB_MATRIX).flatten()
+        idxs = sorted(range(len(sims)), key=lambda i: sims[i], reverse=True)[:k]
+        return [KB_CHUNKS[i] for i in idxs]
+    except Exception:
+        return KB_CHUNKS[:k]
+
+
+# ---------------------------
+# Intent and Prompt Utilities
+# ---------------------------
+
+def _detect_intent(query: str) -> str:
+    q = (query or "").lower()
+    if any(k in q for k in ["met", "meet", "follow up", "follow-up"]):
+        return "email_intro"
+    if any(k in q for k in ["thank", "thanks"]):
+        return "email_thanks"
+    if any(k in q for k in ["informational", "interview", "questions"]):
+        return "informational_interview"
+    if any(k in q for k in ["tracker", "tier", "outreach"]):
+        return "tracker_guidance"
+    return "general"
+
+
+def _template_hint(intent: str) -> str:
+    if intent == "email_intro":
+        return (
+            "Subject: Great meeting you\n\nHi [Name] — great meeting you [today/yesterday] at [event]."
+            " I enjoyed [specific topic]. If you’re open, I’d love 15–20 minutes to learn more about [team/topic].\n\nBest,\n[Your Name]"
+        )
+    if intent == "email_thanks":
+        return (
+            "Subject: Thank you\n\nThanks again for the time today — I appreciated [specific insight]."
+            " I’ll follow up on [next step].\n\nBest,\n[Your Name]"
+        )
+    if intent == "informational_interview":
+        return (
+            "Quick agenda: 1) Your path 2) Day-to-day 3) Advice for breaking in."
+        )
+    return ""
+
+
+def _build_messages(query: str, context: str, intent: str, template_hint: str):
+    system = (
+        "You are a friendly, knowledgeable networking coach."
+        " Use only the provided knowledge base context."
+        " Respond conversationally: acknowledge the user’s situation, then give 3–5 concise bullets,"
+        " optionally include a tiny template when relevant, and end with a follow-up question."
+        " Do not paste long passages; summarize in your own words."
+    )
+    user = (
+        f"Context (top chunks):\n{context}\n\n"
+        f"Intent: {intent}\n"
+        f"Template hint (optional): {template_hint}\n\n"
+        f"Question: {query}\n\n"
+        "Please follow the format strictly: opening acknowledgement, 3–5 bullets,"
+        " optional tiny template, and a follow-up question."
+    )
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
 
