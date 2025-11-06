@@ -206,7 +206,7 @@ def update_contact_service(
     company: Optional[str] = None,
     job_title: Optional[str] = None,
     category: Optional[str] = None,
-    tier: Optional[str] = None,
+    tier: Optional[str] = None,  # Not stored in DB, kept for API compatibility
     date_first_meeting: Optional[str] = None,
     date_next_follow_up: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -219,7 +219,6 @@ def update_contact_service(
         company=company,
         job_title=job_title,
         category=category,
-        tier=tier,
         date_first_meeting=None if not date_first_meeting else __import__("datetime").date.fromisoformat(date_first_meeting),
         date_next_follow_up=None if not date_next_follow_up else __import__("datetime").date.fromisoformat(date_next_follow_up),
     )
