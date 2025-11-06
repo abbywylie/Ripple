@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MessageCircle, X, Send, User, MoreHorizontal, Mail, Save, Pin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,6 +8,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,8 +37,15 @@ const cleanResponse = (text: string) => {
   return text.replace(/\*\*(.*?)\*\*/g, '$1');
 };
 
+const EXAMPLE_QUESTIONS = [
+  "How do I follow up after meeting a recruiter?",
+  "What's a good first message to send on LinkedIn?",
+  "She hasn't responded to my last email. What should I do?",
+];
+
 const RAGAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [showExamples, setShowExamples] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -41,6 +55,13 @@ const RAGAssistant = () => {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Show examples modal when chat opens for the first time (only greeting message)
+  useEffect(() => {
+    if (isOpen && messages.length === 1) {
+      setShowExamples(true);
+    }
+  }, [isOpen, messages.length]);
 
   // Helpers for actions menu
   const getTranscriptText = () => {
@@ -92,22 +113,33 @@ const RAGAssistant = () => {
     }
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleExampleClick = (question: string) => {
+    setInput(question);
+    setShowExamples(false);
+    // Auto-send after a brief delay to let the input update
+    setTimeout(() => {
+      handleSend(question);
+    }, 100);
+  };
+
+  const handleSend = async (questionText?: string) => {
+    const textToSend = questionText || input.trim();
+    if (!textToSend || isLoading) return;
 
     const userMessage: Message = {
       role: "user",
-      content: input.trim(),
+      content: textToSend,
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
+    setShowExamples(false); // Close examples modal when user sends
     setIsLoading(true);
 
     try {
       const response = await api.post("/api/rag/query", {
-        query: input.trim(),
+        query: textToSend,
       });
 
       const assistantMessage: Message = {
@@ -141,6 +173,37 @@ const RAGAssistant = () => {
 
   return (
     <>
+      {/* Pre-Chat Examples Modal */}
+      <Dialog open={showExamples} onOpenChange={setShowExamples}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Get Started</DialogTitle>
+            <DialogDescription>
+              Choose a question to get started, or type your own below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            {EXAMPLE_QUESTIONS.map((question, index) => (
+              <Button
+                key={index}
+                variant="outline"
+                className="w-full text-left justify-start h-auto py-3 px-4 hover:bg-blue-50 hover:border-blue-300"
+                onClick={() => handleExampleClick(question)}
+              >
+                <span className="text-sm">{question}</span>
+              </Button>
+            ))}
+          </div>
+          <Button
+            variant="ghost"
+            className="w-full"
+            onClick={() => setShowExamples(false)}
+          >
+            I'll type my own question
+          </Button>
+        </DialogContent>
+      </Dialog>
+
       {/* Floating Chat Bubble */}
       <Button
         onClick={() => setIsOpen(true)}
