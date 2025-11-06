@@ -84,23 +84,33 @@ _EMB_MATRIX = None  # type: ignore
 _TFIDF = None  # type: ignore
 
 # Initial index build
-if KB_FILES:
-    def _init_index_once():
-        try:
+def _init_index_once():
+    try:
+        if KB_FILES:
             _rebuild_index()
-        except Exception:
-            pass
-    _init_index_once()
+            print(f"RAG: Loaded {len(KB_FILES)} KB files, built {len(KB_CHUNKS)} chunks")
+        else:
+            print("RAG: No KB files found in knowledge_base folder")
+    except Exception as e:
+        print(f"RAG: Error building index: {e}")
+        import traceback
+        traceback.print_exc()
+
+_init_index_once()
 
 
 def ensure_kb_up_to_date() -> None:
     """Reload KB files from disk if any files changed since last load."""
-    global KB_FILES, KB_LAST_MTIME, KNOWLEDGE_BASE
+    global KB_FILES, KB_LAST_MTIME, KB_CHUNKS
     current_mtime = _kb_latest_mtime()
     if current_mtime and current_mtime > KB_LAST_MTIME:
         files = load_knowledge_base_from_folder()
         KB_FILES = files or {}
-        _rebuild_index()
+        try:
+            _rebuild_index()
+            print(f"RAG: Reloaded KB, now {len(KB_CHUNKS)} chunks")
+        except Exception as e:
+            print(f"RAG: Error reloading index: {e}")
         KB_LAST_MTIME = current_mtime
 
 
