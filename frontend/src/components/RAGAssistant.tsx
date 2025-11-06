@@ -112,7 +112,7 @@ const RAGAssistant = () => {
 
       const assistantMessage: Message = {
         role: "assistant",
-        content: response.data.answer || response.data.context || "I couldn't find information about that. Try asking about tiers, outreach, or the tracker format!",
+        content: response.data.answer || "I couldn't find information about that. Try asking about tiers, outreach, or the tracker format!",
         timestamp: new Date(),
       };
 

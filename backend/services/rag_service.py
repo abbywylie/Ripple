@@ -20,44 +20,6 @@ USE_GROQ = bool(GROQ_API_KEY)
 USE_OPENAI = bool(OPENAI_API_KEY)
 
 # We'll use a simple approach first - can upgrade to proper vector store later
-# If a knowledge_base folder exists, we'll load content from there. Otherwise use this default.
-DEFAULT_KNOWLEDGE_BASE = """
-RECRUITING TRACKER TEMPLATE - KNOWLEDGE BASE
-
-Company Tracker Format:
-- Company | Tier | Contact Name | Contact Role | LinkedIn | Email | Outreach 1 | Outreach 2 | Outreach 3 | Notes | Position Link | Position Deadline | Applied?
-
-Tier System:
-- Tier 1 = Dream companies: Send 3 messages total, 1.5–2 weeks apart
-- Tier 2 = Great companies: Send 2 messages total
-- Tier 3 = Curious companies: 1 message is ok
-
-Outreach Pattern:
-- First contact (Outreach 1): Initial introduction, express interest
-- Second contact (Outreach 2): Follow-up with additional value or specific question
-- Third contact (Outreach 3): Final follow-up if no response (Tier 1 only)
-
-Best Practices:
-- Start with 5 companies minimum
-- Each company should have at least 1 point of contact
-- Track each interaction with email/call notes
-- Record date of application
-- Send thank-you emails after calls
-- Track deadlines for each position
-- Update tracker regularly
-
-Contact Columns:
-- Contact Name: Person's full name
-- Contact Role: Their job title/role
-- LinkedIn: LinkedIn profile URL
-- Email: Email address if available
-- Notes: Important context about interactions
-
-Application Tracking:
-- Applied?: Yes/No checkbox
-- Position Link: URL to job posting
-- Position Deadline: Application deadline date
-"""
 
 # Path to optional on-disk knowledge base
 KB_DIR = Path(__file__).parent.parent / "knowledge_base"
@@ -107,7 +69,7 @@ KB_LAST_MTIME: float = _kb_latest_mtime()
 if KB_FILES:
     KNOWLEDGE_BASE = "\n\n".join([content for _, content in KB_FILES.items() if content])
 else:
-    KNOWLEDGE_BASE = DEFAULT_KNOWLEDGE_BASE
+    KNOWLEDGE_BASE = ""
 
 
 def ensure_kb_up_to_date() -> None:
@@ -120,9 +82,9 @@ def ensure_kb_up_to_date() -> None:
             KB_FILES = files
             KNOWLEDGE_BASE = "\n\n".join([content for _, content in KB_FILES.items() if content])
         else:
-            # If folder became empty, fall back to default
+            # If folder became empty, leave KB empty
             KB_FILES = {}
-            KNOWLEDGE_BASE = DEFAULT_KNOWLEDGE_BASE
+            KNOWLEDGE_BASE = ""
         KB_LAST_MTIME = current_mtime
 
 
@@ -136,59 +98,11 @@ def get_relevant_context(query: str) -> str:
 
     query_lower = query.lower()
     
-    # Keywords and their associated context (baseline if folder is empty)
-    knowledge_snippets = {
-        "tier": """
-Tier System:
-- Tier 1 = Dream companies: Send 3 messages total, 1.5–2 weeks apart
-- Tier 2 = Great companies: Send 2 messages total  
-- Tier 3 = Curious companies: 1 message is ok
-        """,
-        "outreach": """
-Outreach Pattern:
-- First contact (Outreach 1): Initial introduction, express interest
-- Second contact (Outreach 2): Follow-up with additional value or specific question
-- Third contact (Outreach 3): Final follow-up if no response (Tier 1 only)
-        """,
-        "message": """
-[] Message Guidelines:
-- Tier 1 companies: Send 3 messages total, space them 1.5-2 weeks apart
-- Tier 2 companies: Send 2 messages
-- Tier 3 companies: 1 message is ok
-        """,
-        "contact": """
-Contact Information:
-- Track Contact Name, Contact Role, LinkedIn, Email
-- Record all interactions in Notes column
-- Send thank-you emails after calls
-- Keep notes updated regularly
-        """,
-        "apply": """
-Application Tracking:
-- Record Position Link (job posting URL)
-- Track Position Deadline
-- Mark Applied? (Yes/No)
-- Log application date in Notes
-        """,
-        "tracker": """
-Tracker Format:
-Company | Tier | Contact Name | Contact Role | LinkedIn | Email | Outreach 1 | Outreach 2 | Outreach 3 | Notes | Position Link | Position Deadline | Applied?
-
-Best Practices:
-- Start with 5 companies minimum
-- Each company should have at least 1 point of contact
-- Track each interaction with email/call notes
-- Record date of application
-- Send thank-you emails after calls
-- Track deadlines for each position
-        """,
-    }
-    
     # If we have on-disk KB files, prefer simple keyword retrieval across files
     if KB_FILES:
         relevant_contexts: List[str] = []
-        # Very simple heuristic: include files that contain any keyword from the map
-        keywords = list(knowledge_snippets.keys())
+        # Very simple heuristic: include files that contain any query keyword
+        keywords = [w for w in query_lower.split() if w]
         for name, content in KB_FILES.items():
             content_lower = content.lower()
             if any(k in query_lower or k in content_lower for k in keywords):
@@ -200,22 +114,14 @@ Best Practices:
                 if any(word and word in content.lower() for word in query_lower.split()):
                     relevant_contexts.append(content)
 
-        # If still nothing, fall back to combined KB
+        # If still nothing, return combined KB (may be empty)
         if not relevant_contexts:
             return KNOWLEDGE_BASE
 
         return "\n\n".join(relevant_contexts)
-
-    # Fallback to built-in snippets if no on-disk KB is present
-    relevant_contexts = []
-    for keyword, context in knowledge_snippets.items():
-        if keyword in query_lower:
-            relevant_contexts.append(context.strip())
-
-    if not relevant_contexts:
-        return KNOWLEDGE_BASE
-
-    return "\n\n".join(relevant_contexts)
+    
+    # If no KB files present, return empty string
+    return ""
 
 
 def answer_rag_question(query: str, user_context: str = "") -> Dict:
@@ -223,13 +129,21 @@ def answer_rag_question(query: str, user_context: str = "") -> Dict:
     Answer a question using the knowledge base context.
     Returns both the answer and the source context used.
     """
-    # Get relevant context from knowledge base - use more comprehensive context
+    # Get relevant context from knowledge base (from folder only)
     context = get_relevant_context(query)
     
-    # If context is too short or generic, include more of the knowledge base
-    if not context or len(context) < 100 or context == KNOWLEDGE_BASE:
-        # Use full knowledge base for better context
-        context = KNOWLEDGE_BASE
+    # If we have no KB content, return a helpful notice without generic tips
+    if not context.strip():
+        notice = (
+            "I don’t have knowledge base content to reference yet."
+            " Add .md or .txt files to backend/knowledge_base and ask again."
+        )
+        return {
+            "query": query,
+            "context": "",
+            "answer": _format_conversational(query, notice),
+            "needs_llm": True
+        }
     
     # Try Groq first (free and fast!)
     if USE_GROQ:
@@ -266,23 +180,23 @@ def answer_rag_question(query: str, user_context: str = "") -> Dict:
             )
             
             answer = response.choices[0].message.content
-            
+            conversational = _format_conversational(query, answer)
             return {
                 "query": query,
                 "context": context,
-                "answer": answer,
+                "answer": conversational,
                 "needs_llm": False,
                 "model": "llama-3.1-8b-instant (Groq)"
             }
         except Exception as e:
-            # Fallback to simple response if Groq fails
+            # Fallback to concise response if Groq fails
             print(f"Groq error: {e}")
-            # Format context nicely without alarming message
-            formatted_context = context.strip()
+            concise = _make_concise_answer(query, context)
+            conversational = _format_conversational(query, concise)
             return {
                 "query": query,
                 "context": context,
-                "answer": formatted_context,
+                "answer": conversational,
                 "needs_llm": True,
                 "error": str(e)
             }
@@ -320,32 +234,150 @@ def answer_rag_question(query: str, user_context: str = "") -> Dict:
             )
             
             answer = response.choices[0].message.content
-            
+            conversational = _format_conversational(query, answer)
             return {
                 "query": query,
                 "context": context,
-                "answer": answer,
+                "answer": conversational,
                 "needs_llm": False,
                 "model": "gpt-3.5-turbo"
             }
         except Exception as e:
-            # Fallback to simple response if OpenAI fails
+            # Fallback to concise response if OpenAI fails
             print(f"OpenAI error: {e}")
-            # Format context nicely without alarming message
-            formatted_context = context.strip()
+            concise = _make_concise_answer(query, context)
+            conversational = _format_conversational(query, concise)
             return {
                 "query": query,
                 "context": context,
-                "answer": formatted_context,
+                "answer": conversational,
                 "needs_llm": True,
                 "error": str(e)
             }
     
     # Fallback: return contextual answer without LLM
+    concise = _make_concise_answer(query, context)
+    conversational = _format_conversational(query, concise)
     return {
         "query": query,
         "context": context,
-        "answer": f"Based on the recruiting tracker knowledge base:\n\n{context}",
+        "answer": conversational,
         "needs_llm": True
     }
+
+
+def _format_conversational(query: str, bullets_text: str) -> str:
+    """Wrap answer with conversational structure: acknowledge, brief bullets, tiny template (if email-y), follow-up."""
+    q = (query or "").strip()
+    opening = _acknowledge(q)
+    bullets = _normalize_bullets(bullets_text)
+    template = _maybe_email_template(q)
+    follow_up = _follow_up(q)
+
+    parts = [opening]
+    if bullets:
+        parts.append("Here are quick pointers:")
+        parts.append("\n".join([f"- {b}" for b in bullets]))
+    if template:
+        parts.append("\nTry this mini template:")
+        parts.append(template)
+    parts.append(follow_up)
+
+    return "\n\n".join(parts)
+
+
+def _acknowledge(q: str) -> str:
+    if not q:
+        return "Got it — here’s a quick take."
+    if any(k in q.lower() for k in ["met", "meet", "network", "coffee"]):
+        return "Sounds like you just met someone — nice job taking initiative."
+    if any(k in q.lower() for k in ["email", "intro", "reach", "follow"]):
+        return "You’re crafting outreach — let’s keep it brief and specific."
+    return "Here’s a concise answer based on best practices."
+
+
+def _normalize_bullets(text: str) -> list[str]:
+    lines = [ln.strip(" -•\t") for ln in (text or "").splitlines() if ln.strip()]
+    # Keep short, actionable lines
+    bullets: list[str] = []
+    for ln in lines:
+        if 2 <= len(ln) <= 150:
+            bullets.append(ln)
+        if len(bullets) >= 5:
+            break
+    if not bullets:
+        bullets = ["Keep it brief (one screen on mobile).", "Ask 2–3 focused questions.", "Send a thank-you within 24 hours."]
+    return bullets[:5]
+
+
+def _maybe_email_template(q: str) -> str:
+    ql = q.lower()
+    if any(k in ql for k in ["email", "intro", "follow", "met", "meet"]):
+        return (
+            "Subject: Great meeting you\n\n"
+            "Hi [Name] — great meeting you [today/yesterday] at [event]."
+            " I enjoyed [specific topic]. If you’re open, I’d love 15–20 minutes to learn more about [team/topic]."
+            "\n\nBest,\n[Your Name]"
+        )
+    return ""
+
+
+def _follow_up(q: str) -> str:
+    if any(k in (q or "").lower() for k in ["email", "met", "follow"]):
+        return "Want me to tailor that template to your situation (industry, role, or event)?"
+    return "Want a deeper dive or a tailored example for your context?"
+
+
+def _make_concise_answer(query: str, context: str) -> str:
+    """Produce 3–5 short bullets from the KB context without dumping full text."""
+    if not context or not context.strip():
+        return ""
+    q = (query or "").lower()
+    # Prefer lines that look like bullets or short guidelines
+    lines = [
+        ln.strip(" -•\t") for ln in context.splitlines() if ln.strip()
+    ]
+    # Simple keyword guidance
+    preferred_keywords = []
+    if any(k in q for k in ["tier", "tiers"]):
+        preferred_keywords += ["Tier 1", "Tier 2", "Tier 3"]
+    if any(k in q for k in ["outreach", "follow-up", "follow up"]):
+        preferred_keywords += ["Outreach", "follow", "thank-you"]
+    if any(k in q for k in ["email", "intro", "message"]):
+        preferred_keywords += ["email", "introduction", "brief", "20 minutes"]
+
+    selected: list[str] = []
+    # First, pick lines containing preferred keywords
+    for kw in preferred_keywords:
+        for ln in lines:
+            if len(selected) >= 5:
+                break
+            if kw.lower() in ln.lower() and ln not in selected and 3 <= len(ln) <= 180:
+                selected.append(ln)
+        if len(selected) >= 5:
+            break
+
+    # If still short, pick generic short actionable lines
+    if len(selected) < 3:
+        for ln in lines:
+            if len(selected) >= 5:
+                break
+            if 3 <= len(ln) <= 140 and any(x in ln.lower() for x in ["ask", "send", "track", "prepare", "brief", "thank"]):
+                if ln not in selected:
+                    selected.append(ln)
+
+    # Final fallback: very short summary bullets
+    if not selected:
+        selected = [
+            "Keep emails brief and specific (one screen on mobile).",
+            "Ask 2–3 focused questions; leave room for follow-ups.",
+            "Send thanks within 24 hours and log key notes.",
+        ]
+
+    # Limit to 3–5 bullets
+    bullets = selected[:5]
+    if len(bullets) > 5:
+        bullets = bullets[:5]
+
+    return "\n".join([f"- {b}" for b in bullets[:5]])
 
