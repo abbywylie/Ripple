@@ -68,7 +68,6 @@ def contact_to_dict(contact: Contact) -> Dict[str, Any]:
         "company": contact.company,
         "job_title": contact.job_title,
         "category": contact.category or "Professional",
-        "tier": contact.tier or "Tier 3",
         "date_first_meeting": contact.date_first_meeting.isoformat() if contact.date_first_meeting else None,
         "date_next_follow_up": contact.date_next_follow_up.isoformat() if contact.date_next_follow_up else None,
         "date_created": contact.date_created.isoformat() if contact.date_created else None,
@@ -180,7 +179,7 @@ def create_contact(
     company: Optional[str] = None,
     job_title: Optional[str] = None,
     category: Optional[str] = "Professional",
-    tier: Optional[str] = "Tier 3",
+    tier: Optional[str] = None,  # Not stored in DB, kept for API compatibility
     date_first_meeting: Optional[str] = None,
     date_next_follow_up: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -192,7 +191,6 @@ def create_contact(
         company=company,
         job_title=job_title,
         category=category,
-        tier=tier,
         date_first_meeting=None if not date_first_meeting else __import__("datetime").date.fromisoformat(date_first_meeting),
         date_next_follow_up=None if not date_next_follow_up else __import__("datetime").date.fromisoformat(date_next_follow_up),
     )
