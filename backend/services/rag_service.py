@@ -83,7 +83,7 @@ KB_CHUNKS: List[Dict[str, str]] = []  # {id, source, text}
 _EMB_MATRIX = None  # type: ignore
 _TFIDF = None  # type: ignore
 
-# Initial index build
+# Initial index build (called at end of file after all functions defined)
 def _init_index_once():
     try:
         if KB_FILES:
@@ -95,8 +95,6 @@ def _init_index_once():
         print(f"RAG: Error building index: {e}")
         import traceback
         traceback.print_exc()
-
-_init_index_once()
 
 
 def ensure_kb_up_to_date() -> None:
@@ -518,4 +516,8 @@ def _build_messages(query: str, context: str, intent: str, template_hint: str):
         {"role": "system", "content": system},
         {"role": "user", "content": user},
     ]
+
+
+# Initialize index after all functions are defined
+_init_index_once()
 
