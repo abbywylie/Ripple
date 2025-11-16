@@ -153,8 +153,11 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
 
   const startTour = () => {
     setShowWelcome(false);
-    setIsActive(true);
-    setCurrentStep(0);
+    // Small delay to ensure welcome modal closes before tour starts
+    setTimeout(() => {
+      setIsActive(true);
+      setCurrentStep(0);
+    }, 100);
   };
 
   const skipTour = () => {
@@ -247,8 +250,12 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   return (
     <>
       {/* Welcome Modal */}
-      <Dialog open={showWelcome} onOpenChange={setShowWelcome}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={showWelcome && !isActive} onOpenChange={(open) => {
+        if (!open) {
+          setShowWelcome(false);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md z-[10000]">
           <DialogHeader>
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="h-6 w-6 text-primary" />
