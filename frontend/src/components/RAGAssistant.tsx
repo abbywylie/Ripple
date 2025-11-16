@@ -206,6 +206,7 @@ const RAGAssistant = () => {
 
       {/* Floating Chat Bubble */}
       <Button
+        data-tour="chatbot"
         onClick={() => setIsOpen(true)}
         className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all z-50 bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
         size="icon"

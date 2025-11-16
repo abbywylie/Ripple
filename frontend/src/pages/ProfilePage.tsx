@@ -2,8 +2,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { LogOut, Mail, User } from 'lucide-react';
+import { LogOut, Mail, User, BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { resetTour } from '@/components/OnboardingTour';
+import { toast } from 'sonner';
 
 const ProfilePage = () => {
   const { user, logout } = useAuth();
@@ -63,12 +65,23 @@ const ProfilePage = () => {
                 <p className="font-medium">{user.userId}</p>
               </div>
             </div>
-            <div className="pt-4">
+            <div className="pt-4 space-y-2">
               <Link to="/dashboard">
                 <Button variant="secondary" className="w-full">
                   Go to Dashboard
                 </Button>
               </Link>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  resetTour();
+                  toast.success("Tour reset! Refresh the page to see the welcome prompt again.");
+                }}
+              >
+                <BookOpen className="mr-2 h-4 w-4" />
+                Rewatch Quick Tour
+              </Button>
             </div>
           </CardContent>
         </Card>

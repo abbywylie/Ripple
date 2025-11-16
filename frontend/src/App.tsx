@@ -21,6 +21,7 @@ import ProgressPage from "./pages/Progress";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import RAGAssistant from "./components/RAGAssistant";
+import { OnboardingTour } from "./components/OnboardingTour";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => (
       <AppSidebar />
       <main className="flex-1 overflow-auto">{children}</main>
       <RAGAssistant />
+      <OnboardingTour />
     </div>
   </SidebarProvider>
 );

@@ -12,12 +12,12 @@ import {
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Dashboard", url: "/dashboard", icon: Home },
-  { title: "Contacts", url: "/contacts", icon: Users },
-  { title: "Meetings", url: "/meetings", icon: Calendar },
-  { title: "Goals", url: "/goals", icon: Target },
-  { title: "Reminders", url: "/reminders", icon: Bell },
-  { title: "Progress", url: "/progress", icon: TrendingUp },
+  { title: "Dashboard", url: "/dashboard", icon: Home, tourId: "dashboard" },
+  { title: "Contacts", url: "/contacts", icon: Users, tourId: "contacts" },
+  { title: "Meetings", url: "/meetings", icon: Calendar, tourId: "meetings" },
+  { title: "Goals", url: "/goals", icon: Target, tourId: "goals" },
+  { title: "Reminders", url: "/reminders", icon: Bell, tourId: "reminders" },
+  { title: "Progress", url: "/progress", icon: TrendingUp, tourId: "progress" },
   { title: "Profile", url: "/profile", icon: User },
 ];
 
@@ -37,6 +37,7 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
+                      data-tour={item.tourId}
                       className={({ isActive }) =>
                         `flex items-center gap-3 px-6 py-3 transition-all ${
                           isActive
