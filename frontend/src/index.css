@@ -60,6 +60,66 @@ All colors MUST be HSL.
     --shadow-glass: 0 8px 32px 0 rgba(13, 71, 161, 0.08);
     --shadow-glow: 0 0 40px rgba(13, 71, 161, 0.15);
   }
+
+  .dark {
+    /* Dark Mode - Reduced battery drain on OLED */
+    --background: 217 33% 8%;
+    --foreground: 0 0% 98%;
+
+    --card: 217 33% 10%;
+    --card-foreground: 0 0% 98%;
+    --card-glass: 217 33% 12%;
+
+    --popover: 217 33% 10%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 217 91% 50%;
+
+    --secondary: 217 20% 15%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 217 20% 15%;
+    --muted-foreground: 217 15% 65%;
+
+    --accent: 38 92% 60%;
+    --accent-foreground: 0 0% 100%;
+    --accent-glow: 38 92% 50%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 217 20% 20%;
+    --input: 217 20% 15%;
+    --ring: 217 91% 60%;
+
+    --sidebar-background: 217 33% 10%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 20% 15%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 217 20% 20%;
+    --sidebar-ring: 217 91% 60%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 50%));
+    --gradient-card: linear-gradient(135deg, hsl(217 33% 10% / 0.8), hsl(217 33% 12% / 0.6));
+    --gradient-glow: radial-gradient(circle at 50% 0%, hsl(217 91% 60% / 0.1), transparent 50%);
+    
+    --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    --shadow-glow: 0 0 40px rgba(217, 91%, 60%, 0.2);
+  }
+
+  /* Disable animations for battery efficiency */
+  .no-animations *,
+  .no-animations *::before,
+  .no-animations *::after {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+  }
 }
 
 @layer base {
