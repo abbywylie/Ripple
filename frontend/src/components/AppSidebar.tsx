@@ -1,6 +1,6 @@
 import { Home, Users, Target, Bell, TrendingUp, User, Calendar } from "lucide-react";
 import rippleLogo from "@/assets/ripple-logo.png";
-import { NavLink } from "react-router-dom";
+import { NavLink, Link } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -26,7 +26,9 @@ export function AppSidebar() {
     <Sidebar className="border-r border-border/50">
       <SidebarContent className="bg-sidebar pt-8">
         <div className="px-6 mb-8">
-          <img src={rippleLogo} alt="Ripple - Waves of Opportunity" className="w-40 mx-auto" />
+          <Link to="/dashboard" className="block cursor-pointer hover:opacity-80 transition-opacity">
+            <img src={rippleLogo} alt="Ripple - Waves of Opportunity" className="w-40 mx-auto" />
+          </Link>
         </div>
 
         <SidebarGroup>
