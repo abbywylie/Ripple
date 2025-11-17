@@ -386,11 +386,27 @@ export const DailyRipple = () => {
   };
 
   const handleNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % allCards.length);
+    if (isPinned && pinnedTypeCards.length > 1) {
+      // Cycle through pinned type variations
+      setPinnedTypeIndex((prev) => (prev + 1) % pinnedTypeCards.length);
+      setTimeRemaining(10); // Reset timer
+    } else {
+      // Cycle through all card types
+      setCurrentIndex((prev) => (prev + 1) % allCards.length);
+      setTimeRemaining(10); // Reset timer
+    }
   };
 
   const handlePrev = () => {
-    setCurrentIndex((prev) => (prev - 1 + allCards.length) % allCards.length);
+    if (isPinned && pinnedTypeCards.length > 1) {
+      // Cycle backwards through pinned type variations
+      setPinnedTypeIndex((prev) => (prev - 1 + pinnedTypeCards.length) % pinnedTypeCards.length);
+      setTimeRemaining(10); // Reset timer
+    } else {
+      // Cycle backwards through all card types
+      setCurrentIndex((prev) => (prev - 1 + allCards.length) % allCards.length);
+      setTimeRemaining(10); // Reset timer
+    }
   };
 
   const scrollToCard = (index: number) => {
@@ -618,14 +634,14 @@ export const DailyRipple = () => {
                   <X className="h-3 w-3 mr-1" />
                   Unpin
                 </Button>
-                {allCards.length > 1 && (
+                {pinnedTypeCards.length > 1 && (
                   <Button
                     variant="outline"
                     size="sm"
                     className="flex-1 text-xs h-7"
                     onClick={handleNext}
                   >
-                    <RotateCw className="h-3 w-3 mr-1" />
+                    <ChevronRight className="h-3 w-3 mr-1" />
                     Next
                   </Button>
                 )}
