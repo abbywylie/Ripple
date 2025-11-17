@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Sparkles, BookOpen, Heart, Target, Cookie, Star, RotateCw, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type CardType = "quote" | "resource" | "prompt" | "challenge" | "fortune";
 
@@ -226,6 +227,7 @@ export const DailyRipple = () => {
   const [pinnedTypeCards, setPinnedTypeCards] = useState<RippleCard[]>([]);
   const [pinnedTypeIndex, setPinnedTypeIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [timeRemaining, setTimeRemaining] = useState(10); // Countdown in seconds
   const carouselRef = useRef<HTMLDivElement>(null);
 
   // Generate all cards for carousel - picks random version from each type
@@ -315,16 +317,45 @@ export const DailyRipple = () => {
     }
   }, [allCards]);
 
-  // Auto-cycle through pinned type variations every 10 seconds
+  // Auto-cycle through cards - pinned type variations or all types
   useEffect(() => {
+    const CYCLE_INTERVAL = 10000; // 10 seconds
+    
+    // Reset timer when cycle starts
+    setTimeRemaining(10);
+    
     if (isPinned && pinnedTypeCards.length > 1) {
+      // Cycle through pinned type variations
       const interval = setInterval(() => {
         setPinnedTypeIndex((prev) => (prev + 1) % pinnedTypeCards.length);
-      }, 10000); // 10 seconds
+        setTimeRemaining(10); // Reset countdown
+      }, CYCLE_INTERVAL);
+
+      return () => clearInterval(interval);
+    } else if (!isPinned && allCards.length > 1) {
+      // Cycle through all card types
+      const interval = setInterval(() => {
+        setCurrentIndex((prev) => (prev + 1) % allCards.length);
+        setTimeRemaining(10); // Reset countdown
+      }, CYCLE_INTERVAL);
 
       return () => clearInterval(interval);
     }
-  }, [isPinned, pinnedTypeCards.length]);
+  }, [isPinned, pinnedTypeCards.length, allCards.length]);
+
+  // Countdown timer - decrements every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev <= 1) {
+          return 10; // Reset to 10 (will be synced by cycle interval)
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const handlePin = () => {
     const currentCard = allCards[currentIndex];
@@ -372,15 +403,18 @@ export const DailyRipple = () => {
     }
   };
 
-  // Sync scroll position with currentIndex
+  // Sync scroll position with currentIndex (for auto-cycling and manual navigation)
   useEffect(() => {
-    if (!isPinned && carouselRef.current) {
+    if (!isPinned && carouselRef.current && allCards.length > 0) {
       const cardElement = carouselRef.current.children[currentIndex] as HTMLElement;
       if (cardElement) {
-        cardElement.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        // Small delay to ensure DOM is ready
+        setTimeout(() => {
+          cardElement.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        }, 50);
       }
     }
-  }, [currentIndex, isPinned]);
+  }, [currentIndex, isPinned, allCards.length]);
 
   if (isLoading || (allCards.length === 0 && !isPinned)) {
     return null;
@@ -395,10 +429,62 @@ export const DailyRipple = () => {
   
   const IconComponent = ICON_MAP[currentCard.iconType] || Sparkles;
 
+  // Calculate circular progress (0-100%)
+  const progress = ((10 - timeRemaining) / 10) * 100;
+  const circumference = 2 * Math.PI * 12; // radius = 12
+  const strokeDashoffset = circumference - (progress / 100) * circumference;
+
   return (
     <div className={`px-4 pb-4 mt-auto transition-all duration-300 ${isPinned ? 'px-2' : ''}`}>
       <Card className={`border-border/50 bg-card/50 transition-all duration-300 ${isPinned ? 'shadow-lg' : ''}`}>
-        <CardContent className={`transition-all duration-300 ${isPinned ? 'p-6' : 'p-4'}`}>
+        <CardContent className={`transition-all duration-300 relative ${isPinned ? 'p-6' : 'p-4'}`}>
+          {/* Circular Timer Ring - Top Right */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="absolute top-2 right-2 z-10">
+                  <svg
+                    width="28"
+                    height="28"
+                    className="transform -rotate-90"
+                  >
+                    {/* Background circle */}
+                    <circle
+                      cx="14"
+                      cy="14"
+                      r="12"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className="text-muted-foreground/20"
+                    />
+                    {/* Progress circle */}
+                    <circle
+                      cx="14"
+                      cy="14"
+                      r="12"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeDasharray={circumference}
+                      strokeDashoffset={strokeDashoffset}
+                      strokeLinecap="round"
+                      className="text-primary transition-all duration-1000"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-[10px] font-medium text-foreground">
+                      {timeRemaining}
+                    </span>
+                  </div>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Next message in {timeRemaining} second{timeRemaining !== 1 ? 's' : ''}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {/* Carousel Container */}
           <div className="relative overflow-hidden">
             {/* Carousel Track */}
