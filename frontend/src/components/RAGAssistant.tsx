@@ -134,6 +134,10 @@ const RAGAssistant = () => {
       // Store in localStorage (client-side only, no network request)
       try {
         localStorage.setItem(pinKey, JSON.stringify([pin, ...existing].slice(0, 50)));
+        
+        // Dispatch custom event to notify Dashboard of new pin
+        window.dispatchEvent(new CustomEvent('pinnedAnswerUpdated', { detail: pin }));
+        
         toast.success("Pinned to dashboard", {
           duration: 2000,
         });

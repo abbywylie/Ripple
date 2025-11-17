@@ -1,4 +1,4 @@
-import { Users, Target, TrendingUp, Clock, Plus, UserPlus, ChevronDown, Calendar, ExternalLink, BookOpen } from "lucide-react";
+import { Users, Target, TrendingUp, Clock, Plus, UserPlus, ChevronDown, Calendar, ExternalLink, BookOpen, Pin, X, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -43,6 +43,48 @@ const Dashboard = () => {
   const [interactions, setInteractions] = useState([]);
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pinnedAnswers, setPinnedAnswers] = useState<any[]>([]);
+
+  // Load pinned answers from localStorage
+  useEffect(() => {
+    const loadPinnedAnswers = () => {
+      try {
+        const pinKey = "pinnedAssistantAnswers";
+        const stored = localStorage.getItem(pinKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setPinnedAnswers(parsed);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load pinned answers:", error);
+        setPinnedAnswers([]);
+      }
+    };
+
+    loadPinnedAnswers();
+    
+    // Listen for custom event when pin is added (same tab)
+    const handlePinnedUpdate = () => {
+      loadPinnedAnswers();
+    };
+    
+    // Listen for storage changes (when pinning from another tab)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "pinnedAssistantAnswers") {
+        loadPinnedAnswers();
+      }
+    };
+    
+    window.addEventListener("pinnedAnswerUpdated", handlePinnedUpdate);
+    window.addEventListener("storage", handleStorageChange);
+    
+    return () => {
+      window.removeEventListener("pinnedAnswerUpdated", handlePinnedUpdate);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -223,6 +265,18 @@ const Dashboard = () => {
     jobTitle: contact.job_title
   }));
 
+  // Handle unpinning an answer
+  const handleUnpin = (pinId: number) => {
+    try {
+      const updated = pinnedAnswers.filter((pin) => pin.id !== pinId);
+      const pinKey = "pinnedAssistantAnswers";
+      localStorage.setItem(pinKey, JSON.stringify(updated));
+      setPinnedAnswers(updated);
+    } catch (error) {
+      console.error("Failed to unpin:", error);
+    }
+  };
+
   return (
     <div className="p-8 space-y-8 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -289,6 +343,56 @@ const Dashboard = () => {
           </Card>
         ))}
       </div>
+
+      {/* Pinned Answers Section */}
+      {pinnedAnswers.length > 0 && (
+        <Card className="glass-card border-border/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Pin className="h-5 w-5 text-primary" />
+              Pinned Assistant Answers
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {pinnedAnswers.map((pin) => (
+                <div
+                  key={pin.id}
+                  className="border rounded-lg p-4 hover:border-primary/50 transition-all relative group"
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => handleUnpin(pin.id)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <div className="flex items-start gap-3 pr-8">
+                    <MessageCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div
+                        className="text-sm prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: pin.content }}
+                      />
+                      {pin.createdAt && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Pinned {new Date(pin.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Activity / Tips Tabs */}
