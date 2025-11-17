@@ -445,53 +445,68 @@ export const DailyRipple = () => {
   
   const IconComponent = ICON_MAP[currentCard.iconType] || Sparkles;
 
-  // Calculate circular progress (0-100%)
+  // Calculate progress for ripple animation (0-100%)
   const progress = ((10 - timeRemaining) / 10) * 100;
-  const circumference = 2 * Math.PI * 12; // radius = 12
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
 
   return (
     <div className={`px-4 pb-4 mt-auto transition-all duration-300 ${isPinned ? 'px-2' : ''}`}>
       <Card className={`border-border/50 bg-card/50 transition-all duration-300 ${isPinned ? 'shadow-lg' : ''}`}>
         <CardContent className={`transition-all duration-300 relative ${isPinned ? 'p-6' : 'p-4'}`}>
-          {/* Circular Timer Ring - Top Right */}
+          {/* Ripple/Droplet Animation - Top Right */}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="absolute top-2 right-2 z-10">
-                  <svg
-                    width="28"
-                    height="28"
-                    className="transform -rotate-90"
-                  >
-                    {/* Background circle */}
-                    <circle
-                      cx="14"
-                      cy="14"
-                      r="12"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className="text-muted-foreground/20"
+                <div className="absolute top-2 right-2 z-10 w-10 h-10 flex items-center justify-center overflow-visible">
+                  {/* Ripple expanding animation container */}
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    {/* Multiple expanding ripple circles - progress-based animation */}
+                    <div 
+                      className="absolute inset-0 rounded-full border-2 border-primary/40"
+                      style={{
+                        transform: `scale(${0.5 + (progress / 100) * 0.7})`,
+                        opacity: Math.max(0, 1 - progress / 100),
+                        transition: 'transform 0.3s ease-out, opacity 0.3s ease-out',
+                      }}
                     />
-                    {/* Progress circle */}
-                    <circle
-                      cx="14"
-                      cy="14"
-                      r="12"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeDasharray={circumference}
-                      strokeDashoffset={strokeDashoffset}
-                      strokeLinecap="round"
-                      className="text-primary transition-all duration-1000"
+                    <div 
+                      className="absolute inset-0 rounded-full border-2 border-primary/30"
+                      style={{
+                        transform: `scale(${0.3 + (progress / 100) * 0.9})`,
+                        opacity: Math.max(0, 0.8 - (progress / 100) * 0.8),
+                        transition: 'transform 0.3s ease-out, opacity 0.3s ease-out',
+                      }}
                     />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-[10px] font-medium text-foreground">
-                      {timeRemaining}
-                    </span>
+                    <div 
+                      className="absolute inset-0 rounded-full border-2 border-primary/20"
+                      style={{
+                        transform: `scale(${0.2 + (progress / 100) * 1.0})`,
+                        opacity: Math.max(0, 0.6 - (progress / 100) * 0.6),
+                        transition: 'transform 0.3s ease-out, opacity 0.3s ease-out',
+                      }}
+                    />
+                    {/* Droplet icon in center that moves down */}
+                    <div 
+                      className="absolute inset-0 flex items-center justify-center"
+                      style={{
+                        transform: `translateY(${(progress / 100) * 6}px)`,
+                        transition: 'transform 0.3s ease-out',
+                      }}
+                    >
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-primary drop-shadow-sm"
+                      >
+                        {/* Droplet shape - water drop */}
+                        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+                      </svg>
+                    </div>
                   </div>
                 </div>
               </TooltipTrigger>
