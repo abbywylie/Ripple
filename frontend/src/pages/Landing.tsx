@@ -4,10 +4,12 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import rippleLogo from "@/assets/ripple-logo.png";
 import { statsApi } from "@/lib/api";
+import { useSettings } from "@/contexts/SettingsContext";
 
 const BANNER_STORAGE_KEY = "ripple_live_banner_dismissed";
 
 const Landing = () => {
+  const { darkMode } = useSettings();
   const [showBanner, setShowBanner] = useState(false);
   const [isFading, setIsFading] = useState(false);
   const [stats, setStats] = useState({
@@ -16,6 +18,24 @@ const Landing = () => {
     active_users: 0,
   });
   const [statsLoading, setStatsLoading] = useState(true);
+  const [darkLogo, setDarkLogo] = useState<string | null>(null);
+
+  // Try to load dark mode logo
+  useEffect(() => {
+    if (darkMode) {
+      // Try to import dark logo, fallback to regular if not found
+      import("@/assets/rippleDarklogo.jpeg")
+        .then((module) => {
+          setDarkLogo(module.default);
+        })
+        .catch(() => {
+          // Dark logo doesn't exist, use regular logo with CSS adjustments
+          setDarkLogo(null);
+        });
+    } else {
+      setDarkLogo(null);
+    }
+  }, [darkMode]);
 
   useEffect(() => {
     // Check if user has dismissed the banner
@@ -137,7 +157,13 @@ const Landing = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-3">
-              <img src={rippleLogo} alt="Ripple" className="h-8 w-auto" />
+              <img 
+                src={darkMode && darkLogo ? darkLogo : rippleLogo} 
+                alt="Ripple" 
+                className={`h-8 w-auto transition-opacity duration-300 ${
+                  darkMode && !darkLogo ? 'brightness-110 contrast-110' : ''
+                }`}
+              />
               <span className="text-xl font-bold gradient-text">Ripple</span>
             </Link>
             <div className="flex items-center gap-3">
@@ -324,7 +350,13 @@ const Landing = () => {
       <footer className="relative z-10 border-t border-border/50 py-8 px-4">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <img src={rippleLogo} alt="Ripple" className="h-6 w-auto" />
+            <img 
+              src={darkMode && darkLogo ? darkLogo : rippleLogo} 
+              alt="Ripple" 
+              className={`h-6 w-auto transition-opacity duration-300 ${
+                darkMode && !darkLogo ? 'brightness-110 contrast-110' : ''
+              }`}
+            />
             <span className="text-sm text-muted-foreground">© 2025 Ripple. All rights reserved.</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">

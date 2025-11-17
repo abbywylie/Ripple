@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { Home, Users, Target, Bell, TrendingUp, User, Calendar } from "lucide-react";
 import rippleLogo from "@/assets/ripple-logo.png";
 import { NavLink, Link } from "react-router-dom";
 import { DailyRipple } from "./DailyRipple";
+import { useSettings } from "@/contexts/SettingsContext";
 import {
   Sidebar,
   SidebarContent,
@@ -23,6 +25,31 @@ const items = [
 ];
 
 export function AppSidebar() {
+  const { darkMode } = useSettings();
+  const [darkLogo, setDarkLogo] = useState<string | null>(null);
+  const [logoLoaded, setLogoLoaded] = useState(false);
+
+  // Try to load dark mode logo
+  useEffect(() => {
+    if (darkMode) {
+      // Try to import dark logo, fallback to regular if not found
+      import("@/assets/rippleDarklogo.jpeg")
+        .then((module) => {
+          setDarkLogo(module.default);
+          setLogoLoaded(true);
+        })
+        .catch(() => {
+          // Dark logo doesn't exist, use regular logo with CSS adjustments
+          setDarkLogo(null);
+          setLogoLoaded(true);
+        });
+    } else {
+      setDarkLogo(null);
+      setLogoLoaded(true);
+    }
+  }, [darkMode]);
+
+  const currentLogo = darkMode && darkLogo ? darkLogo : rippleLogo;
 
   return (
     <Sidebar className="border-r border-border/50">
@@ -31,9 +58,11 @@ export function AppSidebar() {
           <div className="px-6 mb-8">
             <Link to="/dashboard" className="block cursor-pointer hover:opacity-80 transition-opacity">
               <img 
-                src={rippleLogo} 
+                src={currentLogo} 
                 alt="Ripple - Waves of Opportunity" 
-                className="w-40 mx-auto transition-opacity duration-300" 
+                className={`w-40 mx-auto transition-opacity duration-300 ${
+                  darkMode && !darkLogo ? 'brightness-110 contrast-110' : ''
+                }`}
               />
             </Link>
           </div>
