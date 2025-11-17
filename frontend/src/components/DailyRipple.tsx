@@ -9,10 +9,19 @@ interface RippleCard {
   type: CardType;
   content: string;
   title: string;
-  icon: typeof Sparkles;
+  iconType: string; // Store as string for localStorage serialization
 }
 
 const CARD_TYPES: CardType[] = ["quote", "resource", "prompt", "challenge", "fortune"];
+
+// Icon mapping for serialization
+const ICON_MAP: Record<string, typeof Sparkles> = {
+  sparkles: Sparkles,
+  bookOpen: BookOpen,
+  heart: Heart,
+  target: Target,
+  cookie: Cookie,
+};
 
 const CARD_CONTENT: Record<CardType, RippleCard[]> = {
   quote: [
@@ -20,19 +29,19 @@ const CARD_CONTENT: Record<CardType, RippleCard[]> = {
       type: "quote",
       title: "Today's Quote",
       content: "Reaching out is a strength, not a weakness.",
-      icon: Sparkles,
+      iconType: "sparkles",
     },
     {
       type: "quote",
       title: "Today's Quote",
       content: "Your network is your net worth.",
-      icon: Sparkles,
+      iconType: "sparkles",
     },
     {
       type: "quote",
       title: "Today's Quote",
       content: "Every connection is a new opportunity.",
-      icon: Sparkles,
+      iconType: "sparkles",
     },
   ],
   resource: [
@@ -40,19 +49,19 @@ const CARD_CONTENT: Record<CardType, RippleCard[]> = {
       type: "resource",
       title: "Learning Resource",
       content: "Read: 'Never Eat Alone' by Keith Ferrazzi - master the art of networking.",
-      icon: BookOpen,
+      iconType: "bookOpen",
     },
     {
       type: "resource",
       title: "Learning Resource",
       content: "Watch: TED Talk 'The Power of Weak Ties' - understand connection strength.",
-      icon: BookOpen,
+      iconType: "bookOpen",
     },
     {
       type: "resource",
       title: "Learning Resource",
       content: "Article: 'How to Write a Follow-Up Email That Gets Responses'.",
-      icon: BookOpen,
+      iconType: "bookOpen",
     },
   ],
   prompt: [
@@ -60,19 +69,19 @@ const CARD_CONTENT: Record<CardType, RippleCard[]> = {
       type: "prompt",
       title: "Social Good Prompt",
       content: "Reach out to someone you haven't spoken to in 6 months. Ask how they're doing.",
-      icon: Heart,
+      iconType: "heart",
     },
     {
       type: "prompt",
       title: "Social Good Prompt",
       content: "Share a helpful resource with a contact who might benefit from it.",
-      icon: Heart,
+      iconType: "heart",
     },
     {
       type: "prompt",
       title: "Social Good Prompt",
       content: "Thank someone who helped you in your career journey.",
-      icon: Heart,
+      iconType: "heart",
     },
   ],
   challenge: [
@@ -80,19 +89,19 @@ const CARD_CONTENT: Record<CardType, RippleCard[]> = {
       type: "challenge",
       title: "Today's Challenge",
       content: "Add a new contact before Friday!",
-      icon: Target,
+      iconType: "target",
     },
     {
       type: "challenge",
       title: "Today's Challenge",
       content: "Send 3 follow-up emails this week.",
-      icon: Target,
+      iconType: "target",
     },
     {
       type: "challenge",
       title: "Today's Challenge",
       content: "Schedule one informational interview this month.",
-      icon: Target,
+      iconType: "target",
     },
   ],
   fortune: [
@@ -100,19 +109,19 @@ const CARD_CONTENT: Record<CardType, RippleCard[]> = {
       type: "fortune",
       title: "Your Fortune",
       content: "You'll receive good news soon.",
-      icon: Cookie,
+      iconType: "cookie",
     },
     {
       type: "fortune",
       title: "Your Fortune",
       content: "A new opportunity is coming your way.",
-      icon: Cookie,
+      iconType: "cookie",
     },
     {
       type: "fortune",
       title: "Your Fortune",
       content: "Your dream job is one email away.",
-      icon: Cookie,
+      iconType: "cookie",
     },
   ],
 };
@@ -132,6 +141,20 @@ export const DailyRipple = () => {
         const pinned = localStorage.getItem(PINNED_RIPPLE_KEY);
         if (pinned) {
           const pinnedCard = JSON.parse(pinned);
+          // Migrate old format (with icon component) to new format (with iconType string)
+          if (pinnedCard.icon && !pinnedCard.iconType) {
+            // Old format detected - clear it and generate new
+            localStorage.removeItem(PINNED_RIPPLE_KEY);
+            generateRandomCard();
+            return;
+          }
+          // Validate iconType exists
+          if (!pinnedCard.iconType || !ICON_MAP[pinnedCard.iconType]) {
+            // Invalid iconType - clear and generate new
+            localStorage.removeItem(PINNED_RIPPLE_KEY);
+            generateRandomCard();
+            return;
+          }
           setCurrentCard(pinnedCard);
           setIsPinned(true);
         } else {
@@ -140,6 +163,8 @@ export const DailyRipple = () => {
         }
       } catch (error) {
         console.error("Failed to load ripple card:", error);
+        // Clear corrupted data
+        localStorage.removeItem(PINNED_RIPPLE_KEY);
         generateRandomCard();
       } finally {
         setIsLoading(false);
@@ -188,7 +213,7 @@ export const DailyRipple = () => {
     return null;
   }
 
-  const IconComponent = currentCard.icon;
+  const IconComponent = ICON_MAP[currentCard.iconType] || Sparkles;
 
   return (
     <div className="px-4 pb-4 mt-auto">
