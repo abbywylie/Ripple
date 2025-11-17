@@ -97,19 +97,57 @@ const RAGAssistant = () => {
   };
 
   const handlePinLatestAnswer = () => {
+    // Prevent any network requests - purely client-side operation
     try {
       const latest = [...messages].reverse().find((m) => m.role === "assistant");
       if (!latest) {
-        toast.info("No assistant answer to pin");
+        toast.info("No assistant answer to pin", {
+          duration: 2000,
+        });
         return;
       }
+      
       const pinKey = "pinnedAssistantAnswers";
-      const existing = JSON.parse(localStorage.getItem(pinKey) || "[]");
-      const pin = { id: Date.now(), createdAt: new Date().toISOString(), content: cleanResponse(latest.content) };
-      localStorage.setItem(pinKey, JSON.stringify([pin, ...existing].slice(0, 50)));
-      toast.success("Pinned to dashboard");
+      let existing = [];
+      
+      // Safely parse existing pins
+      try {
+        const stored = localStorage.getItem(pinKey);
+        if (stored) {
+          existing = JSON.parse(stored);
+          if (!Array.isArray(existing)) {
+            existing = [];
+          }
+        }
+      } catch (parseError) {
+        console.warn("Failed to parse existing pins, starting fresh:", parseError);
+        existing = [];
+      }
+      
+      // Create pin object
+      const pin = {
+        id: Date.now(),
+        createdAt: new Date().toISOString(),
+        content: cleanResponse(latest.content),
+      };
+      
+      // Store in localStorage (client-side only, no network request)
+      try {
+        localStorage.setItem(pinKey, JSON.stringify([pin, ...existing].slice(0, 50)));
+        toast.success("Pinned to dashboard", {
+          duration: 2000,
+        });
+      } catch (storageError) {
+        console.error("Storage error:", storageError);
+        toast.error("Failed to save pin (storage unavailable)", {
+          duration: 2000,
+        });
+      }
     } catch (e) {
-      toast.error("Failed to pin answer");
+      console.error("Pin error:", e);
+      toast.error("Failed to pin answer", {
+        duration: 2000,
+      });
     }
   };
 
