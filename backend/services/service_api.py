@@ -42,6 +42,7 @@ from models.database_functions import (
     Interaction,
     SessionLocal,
     select,
+    func,
 )
 
 from models.database_functions import (
@@ -500,5 +501,25 @@ def get_upcoming_follow_ups_interactions_for_user(user_id: int, days_ahead: int 
     """Get interactions that require follow-up within the next specified days."""
     interactions = get_upcoming_interaction_follow_ups(user_id, days_ahead)
     return [interaction_to_dict(interaction) for interaction in interactions]
+
+
+def get_platform_stats() -> Dict[str, Any]:
+    """Get platform-wide statistics for the landing page."""
+    with SessionLocal() as s:
+        total_users = s.execute(select(func.count(User.user_id))).scalar() or 0
+        total_contacts = s.execute(select(func.count(Contact.contact_id))).scalar() or 0
+        
+        # Count active users (users who have logged in within the last 30 days)
+        # For now, we'll use users who have created contacts as "active"
+        # This is a simple heuristic - you could improve this later
+        active_users = s.execute(
+            select(func.count(func.distinct(Contact.user_id)))
+        ).scalar() or 0
+        
+        return {
+            "total_users": total_users,
+            "total_contacts": total_contacts,
+            "active_users": active_users,
+        }
 
 

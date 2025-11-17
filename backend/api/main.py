@@ -15,7 +15,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from services.service_api import create_user, create_contact, update_contact_service, delete_contact_service, create_meeting, update_meeting_service, delete_meeting_service, get_upcoming_meetings_service, get_meetings_for_date_service, get_user_by_email, list_contacts_for_user, list_meetings_for_contact, list_meetings_for_user, get_upcoming_follow_ups_for_user, get_goals_for_user, create_goal, update_goal_service, delete_goal_service, get_goal_steps, create_goal_step, update_goal_step_service, delete_goal_step_service, get_interactions_for_contact, get_interactions_for_user, create_interaction, update_interaction_service, delete_interaction_service, get_overdue_follow_ups_for_user, get_upcoming_follow_ups_interactions_for_user
+from services.service_api import create_user, create_contact, update_contact_service, delete_contact_service, create_meeting, update_meeting_service, delete_meeting_service, get_upcoming_meetings_service, get_meetings_for_date_service, get_user_by_email, list_contacts_for_user, list_meetings_for_contact, list_meetings_for_user, get_upcoming_follow_ups_for_user, get_goals_for_user, create_goal, update_goal_service, delete_goal_service, get_goal_steps, create_goal_step, update_goal_step_service, delete_goal_step_service, get_interactions_for_contact, get_interactions_for_user, create_interaction, update_interaction_service, delete_interaction_service, get_overdue_follow_ups_for_user, get_upcoming_follow_ups_interactions_for_user, get_platform_stats
 from services.email_parser import parse_email_thread, suggest_actions, generate_interaction_tag
 from services.rag_service import answer_rag_question
 from models.database_functions import AlreadyExistsError, NotFoundError, get_session, User
@@ -270,6 +270,22 @@ def login(user: UserLogin):
             raise HTTPException(status_code=401, detail="Invalid email or password")
         token = create_token(db_user.user_id, db_user.email)
         return {"access_token": token, "token_type": "bearer"}
+
+
+@app.get("/api/stats", response_model=dict)
+def get_stats():
+    """Get platform-wide statistics for the landing page."""
+    try:
+        stats = get_platform_stats()
+        return stats
+    except Exception as e:
+        print(f"Stats error: {e}")
+        # Return default stats on error
+        return {
+            "total_users": 0,
+            "total_contacts": 0,
+            "active_users": 0,
+        }
 
 
 @app.get("/api/me")

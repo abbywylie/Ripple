@@ -177,3 +177,11 @@ export const followUpsApi = {
   },
 };
 
+// Stats API (public endpoint)
+export const statsApi = {
+  getStats: async () => {
+    const response = await axios.get(`${API_BASE_URL}/api/stats`);
+    return response.data;
+  },
+};
+

@@ -3,12 +3,19 @@ import { ArrowRight, Sparkles, X, MessageCircle, Users, Target, TrendingUp, Cale
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import rippleLogo from "@/assets/ripple-logo.png";
+import { statsApi } from "@/lib/api";
 
 const BANNER_STORAGE_KEY = "ripple_live_banner_dismissed";
 
 const Landing = () => {
   const [showBanner, setShowBanner] = useState(false);
   const [isFading, setIsFading] = useState(false);
+  const [stats, setStats] = useState({
+    total_users: 0,
+    total_contacts: 0,
+    active_users: 0,
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     // Check if user has dismissed the banner
@@ -26,6 +33,34 @@ const Landing = () => {
       return () => clearTimeout(timer);
     }
   }, []);
+
+  // Fetch platform stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const data = await statsApi.getStats();
+        setStats(data);
+      } catch (error) {
+        console.error("Failed to fetch stats:", error);
+        // Keep default values on error
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchStats();
+    // Refresh stats every 30 seconds
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Format numbers for display
+  const formatNumber = (num: number): string => {
+    if (num >= 1000) {
+      return `${(num / 1000).toFixed(1)}K`;
+    }
+    return num.toString();
+  };
 
   const handleDismiss = () => {
     setIsFading(true);
@@ -132,7 +167,7 @@ const Landing = () => {
         <div className="relative z-10 max-w-5xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
             <Sparkles className="h-4 w-4 text-primary" />
-            <span className="text-sm text-primary font-medium">Professional Networking Reimagined</span>
+            <span className="text-sm text-primary font-medium">Made for Students by Students</span>
           </div>
 
           <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold mb-6 gradient-text">
@@ -173,16 +208,45 @@ const Landing = () => {
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto">
             <div className="glass-card p-6 rounded-xl border-border/50">
-              <div className="text-4xl font-bold text-primary mb-2">10K+</div>
-              <div className="text-sm text-muted-foreground">Active Users</div>
+              <div className="text-4xl font-bold text-primary mb-2">
+                {statsLoading ? (
+                  <span className="text-2xl">...</span>
+                ) : (
+                  <>
+                    {stats.active_users > 0 ? formatNumber(stats.active_users) : stats.total_users}
+                    {stats.active_users > 0 && stats.active_users < 1000 ? "" : "+"}
+                  </>
+                )}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {stats.active_users > 0 ? "Active Users" : "Total Users"}
+              </div>
             </div>
             <div className="glass-card p-6 rounded-xl border-border/50">
-              <div className="text-4xl font-bold text-accent mb-2">500K+</div>
+              <div className="text-4xl font-bold text-accent mb-2">
+                {statsLoading ? (
+                  <span className="text-2xl">...</span>
+                ) : (
+                  <>
+                    {formatNumber(stats.total_contacts)}
+                    {stats.total_contacts >= 1000 ? "+" : ""}
+                  </>
+                )}
+              </div>
               <div className="text-sm text-muted-foreground">Connections Tracked</div>
             </div>
             <div className="glass-card p-6 rounded-xl border-border/50">
-              <div className="text-4xl font-bold text-primary mb-2">95%</div>
-              <div className="text-sm text-muted-foreground">Follow-up Success Rate</div>
+              <div className="text-4xl font-bold text-primary mb-2">
+                {statsLoading ? (
+                  <span className="text-2xl">...</span>
+                ) : (
+                  <>
+                    {stats.total_users > 0 ? formatNumber(stats.total_users) : "0"}
+                    {stats.total_users >= 1000 ? "+" : ""}
+                  </>
+                )}
+              </div>
+              <div className="text-sm text-muted-foreground">Total Users</div>
             </div>
           </div>
         </div>
