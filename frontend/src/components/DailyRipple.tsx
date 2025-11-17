@@ -43,6 +43,24 @@ const CARD_CONTENT: Record<CardType, RippleCard[]> = {
       content: "Every connection is a new opportunity.",
       iconType: "sparkles",
     },
+    {
+      type: "quote",
+      title: "Today's Quote",
+      content: "The best time to build your network was yesterday. The second best time is now.",
+      iconType: "sparkles",
+    },
+    {
+      type: "quote",
+      title: "Today's Quote",
+      content: "Success is not about who you know, but who knows you.",
+      iconType: "sparkles",
+    },
+    {
+      type: "quote",
+      title: "Today's Quote",
+      content: "A simple follow-up can turn a meeting into a meaningful relationship.",
+      iconType: "sparkles",
+    },
   ],
   resource: [
     {
@@ -61,6 +79,24 @@ const CARD_CONTENT: Record<CardType, RippleCard[]> = {
       type: "resource",
       title: "Learning Resource",
       content: "Article: 'How to Write a Follow-Up Email That Gets Responses'.",
+      iconType: "bookOpen",
+    },
+    {
+      type: "resource",
+      title: "Learning Resource",
+      content: "Podcast: 'How I Built This' - learn from successful entrepreneurs' networking stories.",
+      iconType: "bookOpen",
+    },
+    {
+      type: "resource",
+      title: "Learning Resource",
+      content: "Book: 'Give and Take' by Adam Grant - understand the power of reciprocity.",
+      iconType: "bookOpen",
+    },
+    {
+      type: "resource",
+      title: "Learning Resource",
+      content: "Course: LinkedIn Learning 'Networking for Career Success' - build skills systematically.",
       iconType: "bookOpen",
     },
   ],
@@ -83,6 +119,24 @@ const CARD_CONTENT: Record<CardType, RippleCard[]> = {
       content: "Thank someone who helped you in your career journey.",
       iconType: "heart",
     },
+    {
+      type: "prompt",
+      title: "Social Good Prompt",
+      content: "Introduce two contacts who could benefit from knowing each other.",
+      iconType: "heart",
+    },
+    {
+      type: "prompt",
+      title: "Social Good Prompt",
+      content: "Congratulate a contact on a recent achievement or milestone.",
+      iconType: "heart",
+    },
+    {
+      type: "prompt",
+      title: "Social Good Prompt",
+      content: "Offer to help a contact with something they're working on.",
+      iconType: "heart",
+    },
   ],
   challenge: [
     {
@@ -101,6 +155,24 @@ const CARD_CONTENT: Record<CardType, RippleCard[]> = {
       type: "challenge",
       title: "Today's Challenge",
       content: "Schedule one informational interview this month.",
+      iconType: "target",
+    },
+    {
+      type: "challenge",
+      title: "Today's Challenge",
+      content: "Update your LinkedIn profile with recent achievements.",
+      iconType: "target",
+    },
+    {
+      type: "challenge",
+      title: "Today's Challenge",
+      content: "Attend one networking event or virtual meetup this week.",
+      iconType: "target",
+    },
+    {
+      type: "challenge",
+      title: "Today's Challenge",
+      content: "Reconnect with 5 contacts from your past this month.",
       iconType: "target",
     },
   ],
@@ -123,6 +195,24 @@ const CARD_CONTENT: Record<CardType, RippleCard[]> = {
       content: "Your dream job is one email away.",
       iconType: "cookie",
     },
+    {
+      type: "fortune",
+      title: "Your Fortune",
+      content: "A connection you make today will open doors tomorrow.",
+      iconType: "cookie",
+    },
+    {
+      type: "fortune",
+      title: "Your Fortune",
+      content: "Your networking efforts will pay off this month.",
+      iconType: "cookie",
+    },
+    {
+      type: "fortune",
+      title: "Your Fortune",
+      content: "Someone is thinking about reaching out to you.",
+      iconType: "cookie",
+    },
   ],
 };
 
@@ -135,23 +225,26 @@ export const DailyRipple = () => {
   const [isLoading, setIsLoading] = useState(true);
   const carouselRef = useRef<HTMLDivElement>(null);
 
-  // Generate all cards for carousel
+  // Generate all cards for carousel - picks random version from each type
   useEffect(() => {
     const generateAllCards = () => {
       const cards: RippleCard[] = [];
-      // Get one random card from each type
+      // Get one random card from each type (different each page load)
       CARD_TYPES.forEach((type) => {
         const cardsOfType = CARD_CONTENT[type];
-        const randomCard = cardsOfType[Math.floor(Math.random() * cardsOfType.length)];
-        cards.push(randomCard);
+        // Pick a random card from this type's variations
+        const randomIndex = Math.floor(Math.random() * cardsOfType.length);
+        const randomCard = cardsOfType[randomIndex];
+        cards.push({ ...randomCard }); // Create a copy
       });
-      // Shuffle the cards
+      // Shuffle the order of card types for variety
       const shuffled = cards.sort(() => Math.random() - 0.5);
       setAllCards(shuffled);
     };
 
+    // Only generate on mount (page load)
     generateAllCards();
-  }, []);
+  }, []); // Empty deps - only runs on mount
 
   // Load pinned card or set initial index
   useEffect(() => {
@@ -240,11 +333,23 @@ export const DailyRipple = () => {
 
   const scrollToCard = (index: number) => {
     setCurrentIndex(index);
-    if (carouselRef.current) {
+    if (carouselRef.current && !isPinned) {
       const cardElement = carouselRef.current.children[index] as HTMLElement;
-      cardElement?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      if (cardElement) {
+        cardElement.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      }
     }
   };
+
+  // Sync scroll position with currentIndex
+  useEffect(() => {
+    if (!isPinned && carouselRef.current) {
+      const cardElement = carouselRef.current.children[currentIndex] as HTMLElement;
+      if (cardElement) {
+        cardElement.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      }
+    }
+  }, [currentIndex, isPinned]);
 
   if (isLoading || allCards.length === 0) {
     return null;
@@ -256,97 +361,115 @@ export const DailyRipple = () => {
   return (
     <div className={`px-4 pb-4 mt-auto transition-all duration-300 ${isPinned ? 'px-2' : ''}`}>
       <Card className={`border-border/50 bg-card/50 transition-all duration-300 ${isPinned ? 'shadow-lg' : ''}`}>
-        <CardContent className={`p-4 transition-all duration-300 ${isPinned ? 'p-6' : ''}`}>
+        <CardContent className={`transition-all duration-300 ${isPinned ? 'p-6' : 'p-4'}`}>
           {/* Carousel Container */}
           <div className="relative overflow-hidden">
             {/* Carousel Track */}
-            <div
-              ref={carouselRef}
-              className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory scroll-smooth"
-              style={{
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-                transform: isPinned ? 'none' : `translateX(-${currentIndex * 100}%)`,
-                transition: 'transform 0.3s ease-in-out',
-              }}
-            >
-              {allCards.map((card, index) => {
-                const CardIcon = ICON_MAP[card.iconType] || Sparkles;
-                const isActive = index === currentIndex;
-                const isActiveAndPinned = isActive && isPinned;
-
-                return (
-                  <div
-                    key={`${card.type}-${index}`}
-                    className={`flex-shrink-0 snap-center w-full transition-all duration-300 ${
-                      isPinned && !isActive ? 'hidden' : ''
-                    }`}
-                  >
-                    <div className={`transition-all duration-300 ${isActiveAndPinned ? 'scale-105' : ''}`}>
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className={`rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
-                          isActiveAndPinned ? 'h-10 w-10' : 'h-8 w-8'
-                        }`}>
-                          <CardIcon className={`text-primary transition-all duration-300 ${
-                            isActiveAndPinned ? 'h-5 w-5' : 'h-4 w-4'
-                          }`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className={`font-semibold text-foreground mb-1 transition-all duration-300 ${
-                            isActiveAndPinned ? 'text-sm' : 'text-xs'
-                          }`}>
-                            {card.title}
-                          </h4>
-                          <p className={`text-muted-foreground leading-relaxed transition-all duration-300 ${
-                            isActiveAndPinned ? 'text-sm' : 'text-xs'
-                          }`}>
-                            {card.content}
-                          </p>
+            {isPinned ? (
+              // Pinned mode: Show only the pinned card, enlarged
+              <div className="w-full">
+                {allCards.map((card, index) => {
+                  if (index !== currentIndex) return null;
+                  const CardIcon = ICON_MAP[card.iconType] || Sparkles;
+                  
+                  return (
+                    <div key={`${card.type}-${index}`} className="w-full">
+                      <div className="scale-105 transition-all duration-300">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <CardIcon className="h-5 w-5 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-semibold text-foreground mb-1">
+                              {card.title}
+                            </h4>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              {card.content}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            ) : (
+              // Carousel mode: Show all cards side by side
+              <div className="relative">
+                <div
+                  ref={carouselRef}
+                  className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory scroll-smooth gap-3"
+                  style={{
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                  }}
+                >
+                  {allCards.map((card, index) => {
+                    const CardIcon = ICON_MAP[card.iconType] || Sparkles;
+                    const isActive = index === currentIndex;
+
+                    return (
+                      <div
+                        key={`${card.type}-${index}`}
+                        className="flex-shrink-0 snap-center w-full min-w-full"
+                      >
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <CardIcon className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-xs font-semibold text-foreground mb-1">
+                              {card.title}
+                            </h4>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              {card.content}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Navigation Buttons */}
+                {allCards.length > 1 && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-6 bg-background/80 hover:bg-background shadow-sm z-10"
+                      onClick={handlePrev}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 bg-background/80 hover:bg-background shadow-sm z-10"
+                      onClick={handleNext}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+
+                {/* Carousel Dots */}
+                {allCards.length > 1 && (
+                  <div className="flex justify-center gap-1.5 mt-3">
+                    {allCards.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => scrollToCard(index)}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${
+                          index === currentIndex
+                            ? 'w-6 bg-primary'
+                            : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50'
+                        }`}
+                        aria-label={`Go to card ${index + 1}`}
+                      />
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-
-            {/* Navigation Buttons - Only show if not pinned */}
-            {!isPinned && allCards.length > 1 && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-6 bg-background/80 hover:bg-background shadow-sm"
-                  onClick={handlePrev}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 bg-background/80 hover:bg-background shadow-sm"
-                  onClick={handleNext}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-
-            {/* Carousel Dots - Only show if not pinned */}
-            {!isPinned && allCards.length > 1 && (
-              <div className="flex justify-center gap-1.5 mt-3">
-                {allCards.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => scrollToCard(index)}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
-                      index === currentIndex
-                        ? 'w-6 bg-primary'
-                        : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50'
-                    }`}
-                    aria-label={`Go to card ${index + 1}`}
-                  />
-                ))}
+                )}
               </div>
             )}
           </div>
