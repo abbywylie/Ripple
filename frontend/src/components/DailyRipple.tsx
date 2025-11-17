@@ -222,6 +222,9 @@ export const DailyRipple = () => {
   const [allCards, setAllCards] = useState<RippleCard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPinned, setIsPinned] = useState(false);
+  const [pinnedType, setPinnedType] = useState<CardType | null>(null);
+  const [pinnedTypeCards, setPinnedTypeCards] = useState<RippleCard[]>([]);
+  const [pinnedTypeIndex, setPinnedTypeIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const carouselRef = useRef<HTMLDivElement>(null);
 
@@ -246,44 +249,53 @@ export const DailyRipple = () => {
     generateAllCards();
   }, []); // Empty deps - only runs on mount
 
-  // Load pinned card or set initial index
+  // Load pinned type or set initial index
   useEffect(() => {
     const loadCard = () => {
       try {
-        // Check for pinned card
+        // Check for pinned type (new format) or pinned card (old format for migration)
         const pinned = localStorage.getItem(PINNED_RIPPLE_KEY);
         if (pinned) {
-          const pinnedCard = JSON.parse(pinned);
-          // Migrate old format (with icon component) to new format (with iconType string)
-          if (pinnedCard.icon && !pinnedCard.iconType) {
-            // Old format detected - clear it
-            localStorage.removeItem(PINNED_RIPPLE_KEY);
-            setIsPinned(false);
-            setCurrentIndex(0);
-            return;
-          }
-          // Validate iconType exists
-          if (!pinnedCard.iconType || !ICON_MAP[pinnedCard.iconType]) {
-            // Invalid iconType - clear it
-            localStorage.removeItem(PINNED_RIPPLE_KEY);
-            setIsPinned(false);
-            setCurrentIndex(0);
-            return;
-          }
-          // Find the pinned card in our carousel or add it
-          const cardIndex = allCards.findIndex(
-            (card) => card.type === pinnedCard.type && card.content === pinnedCard.content
-          );
-          if (cardIndex !== -1) {
-            setCurrentIndex(cardIndex);
+          const pinnedData = JSON.parse(pinned);
+          
+          // Check if it's the new format (just type) or old format (full card)
+          if (pinnedData.type && !pinnedData.content) {
+            // New format: just the type
+            const type = pinnedData.type as CardType;
+            if (CARD_TYPES.includes(type)) {
+              setPinnedType(type);
+              setPinnedTypeCards(CARD_CONTENT[type]);
+              setPinnedTypeIndex(0);
+              setIsPinned(true);
+            } else {
+              // Invalid type - clear it
+              localStorage.removeItem(PINNED_RIPPLE_KEY);
+              setIsPinned(false);
+              setPinnedType(null);
+            }
+          } else if (pinnedData.type && pinnedData.content) {
+            // Old format: migrate to new format (pin the type instead)
+            const type = pinnedData.type as CardType;
+            if (CARD_TYPES.includes(type)) {
+              localStorage.setItem(PINNED_RIPPLE_KEY, JSON.stringify({ type }));
+              setPinnedType(type);
+              setPinnedTypeCards(CARD_CONTENT[type]);
+              setPinnedTypeIndex(0);
+              setIsPinned(true);
+            } else {
+              localStorage.removeItem(PINNED_RIPPLE_KEY);
+              setIsPinned(false);
+              setPinnedType(null);
+            }
           } else {
-            // Add pinned card to the beginning
-            setAllCards([pinnedCard, ...allCards]);
-            setCurrentIndex(0);
+            // Invalid format - clear it
+            localStorage.removeItem(PINNED_RIPPLE_KEY);
+            setIsPinned(false);
+            setPinnedType(null);
           }
-          setIsPinned(true);
         } else {
           setIsPinned(false);
+          setPinnedType(null);
           setCurrentIndex(0);
         }
       } catch (error) {
@@ -291,6 +303,7 @@ export const DailyRipple = () => {
         // Clear corrupted data
         localStorage.removeItem(PINNED_RIPPLE_KEY);
         setIsPinned(false);
+        setPinnedType(null);
         setCurrentIndex(0);
       } finally {
         setIsLoading(false);
@@ -302,11 +315,26 @@ export const DailyRipple = () => {
     }
   }, [allCards]);
 
+  // Auto-cycle through pinned type variations every 10 seconds
+  useEffect(() => {
+    if (isPinned && pinnedTypeCards.length > 1) {
+      const interval = setInterval(() => {
+        setPinnedTypeIndex((prev) => (prev + 1) % pinnedTypeCards.length);
+      }, 10000); // 10 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [isPinned, pinnedTypeCards.length]);
+
   const handlePin = () => {
     const currentCard = allCards[currentIndex];
     if (currentCard) {
       try {
-        localStorage.setItem(PINNED_RIPPLE_KEY, JSON.stringify(currentCard));
+        // Pin the TYPE, not the specific card
+        localStorage.setItem(PINNED_RIPPLE_KEY, JSON.stringify({ type: currentCard.type }));
+        setPinnedType(currentCard.type);
+        setPinnedTypeCards(CARD_CONTENT[currentCard.type]);
+        setPinnedTypeIndex(0);
         setIsPinned(true);
       } catch (error) {
         console.error("Failed to pin card:", error);
@@ -318,6 +346,9 @@ export const DailyRipple = () => {
     try {
       localStorage.removeItem(PINNED_RIPPLE_KEY);
       setIsPinned(false);
+      setPinnedType(null);
+      setPinnedTypeCards([]);
+      setPinnedTypeIndex(0);
     } catch (error) {
       console.error("Failed to unpin card:", error);
     }
@@ -351,11 +382,17 @@ export const DailyRipple = () => {
     }
   }, [currentIndex, isPinned]);
 
-  if (isLoading || allCards.length === 0) {
+  if (isLoading || (allCards.length === 0 && !isPinned)) {
     return null;
   }
 
-  const currentCard = allCards[currentIndex];
+  // Get current card to display
+  const currentCard = isPinned && pinnedTypeCards.length > 0
+    ? pinnedTypeCards[pinnedTypeIndex]
+    : allCards[currentIndex];
+  
+  if (!currentCard) return null;
+  
   const IconComponent = ICON_MAP[currentCard.iconType] || Sparkles;
 
   return (
@@ -365,33 +402,41 @@ export const DailyRipple = () => {
           {/* Carousel Container */}
           <div className="relative overflow-hidden">
             {/* Carousel Track */}
-            {isPinned ? (
-              // Pinned mode: Show only the pinned card, enlarged
+            {isPinned && pinnedTypeCards.length > 0 ? (
+              // Pinned mode: Show only cards of the pinned type, cycling through variations
               <div className="w-full">
-                {allCards.map((card, index) => {
-                  if (index !== currentIndex) return null;
-                  const CardIcon = ICON_MAP[card.iconType] || Sparkles;
-                  
-                  return (
-                    <div key={`${card.type}-${index}`} className="w-full">
-                      <div className="scale-105 transition-all duration-300">
-                        <div className="flex items-start gap-3 mb-3">
-                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <CardIcon className="h-5 w-5 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-semibold text-foreground mb-1">
-                              {card.title}
-                            </h4>
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                              {card.content}
-                            </p>
-                          </div>
-                        </div>
+                <div key={`pinned-${pinnedTypeIndex}`} className="w-full">
+                  <div className="scale-105 transition-all duration-500">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <IconComponent className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-semibold text-foreground mb-1">
+                          {currentCard.title}
+                        </h4>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {currentCard.content}
+                        </p>
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                </div>
+                {/* Show indicator that it's cycling */}
+                {pinnedTypeCards.length > 1 && (
+                  <div className="flex justify-center gap-1 mt-2">
+                    {pinnedTypeCards.map((_, index) => (
+                      <div
+                        key={index}
+                        className={`h-1 rounded-full transition-all duration-300 ${
+                          index === pinnedTypeIndex
+                            ? 'w-4 bg-primary'
+                            : 'w-1 bg-muted-foreground/30'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               // Carousel mode: Show all cards side by side
