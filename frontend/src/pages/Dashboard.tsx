@@ -1,6 +1,7 @@
-import { Users, Target, TrendingUp, Clock, Plus, UserPlus, ChevronDown, Calendar, ExternalLink, BookOpen, Pin, X, MessageCircle } from "lucide-react";
+import { Users, Target, TrendingUp, Clock, Plus, UserPlus, ChevronDown, Calendar, ExternalLink, BookOpen, Pin, X, MessageCircle, Edit2, Check, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +45,8 @@ const Dashboard = () => {
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pinnedAnswers, setPinnedAnswers] = useState<any[]>([]);
+  const [editingPinId, setEditingPinId] = useState<number | null>(null);
+  const [editedContent, setEditedContent] = useState<string>("");
 
   // Load pinned answers from localStorage
   useEffect(() => {
@@ -277,6 +280,45 @@ const Dashboard = () => {
     }
   };
 
+  // Handle starting edit mode
+  const handleStartEdit = (pin: any) => {
+    setEditingPinId(pin.id);
+    // Strip HTML tags for editing (show plain text)
+    const textContent = pin.content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+    setEditedContent(textContent);
+  };
+
+  // Handle saving edited content
+  const handleSaveEdit = (pinId: number) => {
+    try {
+      const updated = pinnedAnswers.map((pin) => {
+        if (pin.id === pinId) {
+          // Preserve HTML formatting if needed, or just save as plain text
+          return {
+            ...pin,
+            content: editedContent.replace(/\n/g, '<br>'), // Convert newlines to <br>
+            edited: true,
+            editedAt: new Date().toISOString(),
+          };
+        }
+        return pin;
+      });
+      const pinKey = "pinnedAssistantAnswers";
+      localStorage.setItem(pinKey, JSON.stringify(updated));
+      setPinnedAnswers(updated);
+      setEditingPinId(null);
+      setEditedContent("");
+    } catch (error) {
+      console.error("Failed to save edit:", error);
+    }
+  };
+
+  // Handle canceling edit
+  const handleCancelEdit = () => {
+    setEditingPinId(null);
+    setEditedContent("");
+  };
+
   return (
     <div className="p-8 space-y-8 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -360,24 +402,69 @@ const Dashboard = () => {
                   key={pin.id}
                   className="border rounded-lg p-4 hover:border-primary/50 transition-all relative group"
                 >
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => handleUnpin(pin.id)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <div className="flex items-start gap-3 pr-8">
+                  {/* Action buttons */}
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {editingPinId === pin.id ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleSaveEdit(pin.id)}
+                        >
+                          <Check className="h-4 w-4 text-green-600" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={handleCancelEdit}
+                        >
+                          <X className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleStartEdit(pin)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleUnpin(pin.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-start gap-3 pr-16">
                     <MessageCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <div
-                        className="text-sm prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: pin.content }}
-                      />
+                      {editingPinId === pin.id ? (
+                        <Textarea
+                          value={editedContent}
+                          onChange={(e) => setEditedContent(e.target.value)}
+                          className="w-full min-h-[100px] resize-y"
+                          placeholder="Edit your pinned answer..."
+                          autoFocus
+                        />
+                      ) : (
+                        <div
+                          className="text-sm prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{ __html: pin.content }}
+                        />
+                      )}
                       {pin.createdAt && (
                         <p className="text-xs text-muted-foreground mt-2">
-                          Pinned {new Date(pin.createdAt).toLocaleDateString('en-US', {
+                          {pin.edited ? "Edited" : "Pinned"} {new Date(pin.editedAt || pin.createdAt).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
                             hour: 'numeric',
