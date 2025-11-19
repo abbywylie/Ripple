@@ -12,6 +12,16 @@ import { Progress } from "@/components/ui/progress";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const TOUR_STORAGE_KEY = "ripple_tour_completed";
+const HIGHLIGHT_CLASSES = ["ring-4", "ring-primary", "ring-offset-2", "z-50", "relative"] as const;
+
+const addHighlightClasses = (element: HTMLElement) => {
+  HIGHLIGHT_CLASSES.forEach((cls) => element.classList.add(cls));
+};
+
+const removeHighlightClasses = (element: HTMLElement | null) => {
+  if (!element) return;
+  HIGHLIGHT_CLASSES.forEach((cls) => element.classList.remove(cls));
+};
 const TOUR_STEPS = [
   {
     id: "contacts",
@@ -116,27 +126,28 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       setTimeout(() => {
         const element = document.querySelector(step.target) as HTMLElement;
         if (element) {
+          removeHighlightClasses(highlightedElement);
           setHighlightedElement(element);
           element.scrollIntoView({ behavior: "smooth", block: "center" });
-          // Add highlight class
-          element.classList.add("ring-4", "ring-primary", "ring-offset-2", "z-50", "relative");
+          addHighlightClasses(element);
         }
       }, 500);
     } else {
       const element = document.querySelector(step.target) as HTMLElement;
       if (element) {
+        removeHighlightClasses(highlightedElement);
         setHighlightedElement(element);
         element.scrollIntoView({ behavior: "smooth", block: "center" });
-        // Add highlight class
-        element.classList.add("ring-4", "ring-primary", "ring-offset-2", "z-50", "relative");
+        addHighlightClasses(element);
       } else {
         // If element not found, wait a bit and try again
         const timer = setTimeout(() => {
           const retryElement = document.querySelector(step.target) as HTMLElement;
           if (retryElement) {
+            removeHighlightClasses(highlightedElement);
             setHighlightedElement(retryElement);
             retryElement.scrollIntoView({ behavior: "smooth", block: "center" });
-            retryElement.classList.add("ring-4", "ring-primary", "ring-offset-2", "z-50", "relative");
+            addHighlightClasses(retryElement);
           }
         }, 500);
         return () => clearTimeout(timer);
@@ -145,11 +156,9 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
 
     // Cleanup: remove highlight from previous element
     return () => {
-      if (highlightedElement) {
-        highlightedElement.classList.remove("ring-4", "ring-primary", "ring-offset-2", "z-50", "relative");
-      }
+      removeHighlightClasses(highlightedElement);
     };
-  }, [currentStep, isActive, navigate, location.pathname]);
+  }, [currentStep, isActive, navigate, location.pathname, highlightedElement]);
 
   const startTour = () => {
     setShowWelcome(false);
@@ -162,6 +171,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
 
   const skipTour = () => {
     setShowWelcome(false);
+    removeHighlightClasses(highlightedElement);
     localStorage.setItem(TOUR_STORAGE_KEY, "true");
     onComplete?.();
   };
@@ -183,6 +193,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const completeTour = () => {
     setIsActive(false);
     setCurrentStep(0);
+    removeHighlightClasses(highlightedElement);
     setHighlightedElement(null);
     localStorage.setItem(TOUR_STORAGE_KEY, "true");
     onComplete?.();
@@ -207,6 +218,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
             } else {
               // Complete tour on last step
               setIsActive(false);
+              removeHighlightClasses(highlightedElement);
               setHighlightedElement(null);
               localStorage.setItem(TOUR_STORAGE_KEY, "true");
               onComplete?.();

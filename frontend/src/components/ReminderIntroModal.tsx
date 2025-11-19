@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "react-router-dom";
 import { Sparkles, Calendar, Repeat, Tag } from "lucide-react";
 
 const HIDE_KEY = "ripple_reminder_intro_hide";
-const SESSION_KEY = "ripple_reminder_intro_session";
 
 export const ReminderIntroModal = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -17,17 +18,27 @@ export const ReminderIntroModal = () => {
       return;
     }
 
-    const permanentlyHidden = localStorage.getItem(HIDE_KEY) === "true";
-    if (permanentlyHidden) {
+    // Only show on dashboard
+    if (location.pathname !== "/dashboard") {
+      setOpen(false);
       return;
     }
 
-    const shownThisSession = sessionStorage.getItem(SESSION_KEY) === "true";
-    if (!shownThisSession) {
-      setOpen(true);
-      sessionStorage.setItem(SESSION_KEY, "true");
+    // Check if user has permanently hidden it
+    const permanentlyHidden = localStorage.getItem(HIDE_KEY) === "true";
+    if (permanentlyHidden) {
+      setOpen(false);
+      return;
     }
-  }, [user?.userId]);
+
+    // Show every time they visit the dashboard (unless hidden)
+    // Small delay to ensure page is fully loaded
+    const timer = setTimeout(() => {
+      setOpen(true);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [user?.userId, location.pathname]);
 
   const handleClose = () => setOpen(false);
 
