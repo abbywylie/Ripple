@@ -23,6 +23,7 @@ import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import RAGAssistant from "./components/RAGAssistant";
 import { OnboardingTour } from "./components/OnboardingTour";
+import { ReminderIntroModal } from "./components/ReminderIntroModal";
 import { SettingsProvider, useSettings } from "./contexts/SettingsContext";
 
 // Helper to get efficient loading setting from localStorage
@@ -62,6 +63,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => (
       <AppSidebar />
       <main className="flex-1 overflow-auto">{children}</main>
       <RAGAssistant />
+      <ReminderIntroModal />
       <OnboardingTour />
     </div>
   </SidebarProvider>
