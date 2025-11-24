@@ -595,11 +595,13 @@ def migrate_add_user_fields():
     """Add company_or_school and role columns to users table. One-time migration."""
     try:
         from sqlalchemy import text
-        from models.database_functions import engine
+        from models.database_functions import engine, Base
+        from sqlalchemy.orm import Session
         
-        with engine.connect() as conn:
+        # Use a transaction to ensure it commits
+        with Session(engine) as session:
             # Check if columns already exist
-            result = conn.execute(text("""
+            result = session.execute(text("""
                 SELECT column_name 
                 FROM information_schema.columns 
                 WHERE table_name = 'users' 
@@ -610,29 +612,51 @@ def migrate_add_user_fields():
             added_columns = []
             
             if 'company_or_school' not in existing_columns:
-                conn.execute(text("ALTER TABLE users ADD COLUMN company_or_school VARCHAR(200)"))
-                conn.commit()
+                session.execute(text("ALTER TABLE users ADD COLUMN company_or_school VARCHAR(200)"))
                 added_columns.append('company_or_school')
             
             if 'role' not in existing_columns:
-                conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(200)"))
-                conn.commit()
+                session.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(200)"))
                 added_columns.append('role')
+            
+            # Commit the transaction
+            session.commit()
+            
+            # Verify columns were added
+            result = session.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'users' 
+                AND column_name IN ('company_or_school', 'role')
+            """))
+            verified_columns = [row[0] for row in result.fetchall()]
+            
+            # Clear SQLAlchemy metadata cache to force schema refresh
+            Base.metadata.clear()
+            Base.metadata.reflect(bind=engine)
             
             if added_columns:
                 return {
                     "success": True,
                     "message": f"Successfully added columns: {', '.join(added_columns)}",
-                    "added_columns": added_columns
+                    "added_columns": added_columns,
+                    "verified_columns": verified_columns,
+                    "note": "Service restart recommended to clear connection pool cache"
                 }
             else:
                 return {
                     "success": True,
                     "message": "Columns already exist",
-                    "existing_columns": existing_columns
+                    "existing_columns": existing_columns,
+                    "verified_columns": verified_columns
                 }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
+        import traceback
+        return {
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
 
 
 # Serve the built frontend (the Vite build output) - MUST be after all API routes
