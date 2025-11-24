@@ -97,9 +97,9 @@ export const ContextualHelp = ({ onDismiss }: ContextualHelpProps) => {
             });
             return;
           }
-        } else if (user.experience_level === 'experienced') {
+        } else if (user.experience_level === 'advanced') {
           // Experienced: Suggest advanced features
-          const tipKey = 'experienced-analytics';
+          const tipKey = 'advanced-analytics';
           if (!dismissedTips.has(tipKey) && contacts.length > 10) {
             setHelpTip("Track your networking metrics and relationship health with advanced analytics.");
             setHelpAction({
@@ -110,7 +110,7 @@ export const ContextualHelp = ({ onDismiss }: ContextualHelpProps) => {
           }
 
           // Suggest bulk actions
-          const bulkTipKey = 'experienced-bulk-actions';
+          const bulkTipKey = 'advanced-bulk-actions';
           if (!dismissedTips.has(bulkTipKey) && contacts.length > 20) {
             setHelpTip("Use bulk actions to efficiently manage multiple contacts and goals.");
             setHelpAction({

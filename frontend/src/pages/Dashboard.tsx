@@ -25,6 +25,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { networkingTips } from "@/data/networking-tips";
 import { ContextualHelp } from "@/components/ContextualHelp";
+import { DontKnowWhereToStart } from "@/components/DontKnowWhereToStart";
+import { ProgressChecklist } from "@/components/ProgressChecklist";
 
 // Helper function to parse date strings as local dates to avoid timezone issues
 const parseLocalDate = (dateString: string): Date | null => {
@@ -408,7 +410,7 @@ const Dashboard = () => {
                 return "You're on your way to your first networking goal. Keep going!";
               } else if (user?.experience_level === 'intermediate') {
                 return "Here's what's happening with your network";
-              } else if (user?.experience_level === 'experienced') {
+              } else if (user?.experience_level === 'advanced') {
                 return "Track your networking activities and view relationship health";
               }
               return "Here's what's happening with your network";
@@ -484,6 +486,16 @@ const Dashboard = () => {
       {/* Contextual Help */}
       <ContextualHelp />
 
+      {/* Don't Know Where to Start Button */}
+      {user?.experience_level === 'beginner' && (
+        <DontKnowWhereToStart />
+      )}
+
+      {/* Progress Checklist for Level Unlocking */}
+      {user?.experience_level && user.experience_level !== 'advanced' && (
+        <ProgressChecklist />
+      )}
+
       {/* Personalized Goals Card based on Experience Level */}
       {user?.experience_level && goals.length > 0 && (
         <Card className="glass-card border-border/50 bg-gradient-to-r from-primary/5 to-accent/5">
@@ -505,7 +517,7 @@ const Dashboard = () => {
                     {completionRate >= 50 && " Need help drafting a message?"}
                   </p>
                 )}
-                {user.experience_level === 'experienced' && (
+                {user.experience_level === 'advanced' && (
                   <p className="text-sm text-muted-foreground mb-3">
                     Track your networking activities and view relationship health metrics.
                   </p>
