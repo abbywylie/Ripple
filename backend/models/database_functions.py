@@ -194,7 +194,14 @@ class SyncedEvent(Base):
 # Use environment variable for database URL, fallback to SQLite for local development
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{Path(__file__).parent / 'networking.db'}")
 
-engine = create_engine(DATABASE_URL, echo=False, future=True)
+# Create engine with connection pool settings that help with schema changes
+engine = create_engine(
+    DATABASE_URL, 
+    echo=False, 
+    future=True,
+    pool_pre_ping=True,  # Verify connections before using them
+    pool_recycle=300,     # Recycle connections after 5 minutes
+)
 
 # Ensure SQLite enforces foreign keys (SQLite off by default)
 # PostgreSQL has foreign keys enabled by default, so only run PRAGMA for SQLite
