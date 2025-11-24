@@ -14,6 +14,11 @@ const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
+  userType: z.enum(['student', 'professional'], {
+    required_error: 'Please select whether you are a student or professional',
+  }),
+  company_or_school: z.string().min(2, 'Company or school name is required'),
+  role: z.string().min(2, 'Role is required'),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -28,13 +33,18 @@ const Register = () => {
       name: '',
       email: '',
       password: '',
+      userType: undefined,
+      company_or_school: '',
+      role: '',
     },
   });
+
+  const userType = form.watch('userType');
 
   const onSubmit = async (values: RegisterFormValues) => {
     setIsLoading(true);
     try {
-      await register(values.name, values.email, values.password);
+      await register(values.name, values.email, values.password, values.company_or_school, values.role);
     } catch (error) {
       // Error is handled in AuthContext
     } finally {
@@ -91,6 +101,80 @@ const Register = () => {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="userType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>I am a...</FormLabel>
+                    <FormControl>
+                      <div className="flex gap-4">
+                        <Button
+                          type="button"
+                          variant={field.value === 'student' ? 'default' : 'outline'}
+                          className="flex-1"
+                          onClick={() => {
+                            field.onChange('student');
+                            form.setValue('company_or_school', '');
+                            form.setValue('role', '');
+                          }}
+                        >
+                          Student
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={field.value === 'professional' ? 'default' : 'outline'}
+                          className="flex-1"
+                          onClick={() => {
+                            field.onChange('professional');
+                            form.setValue('company_or_school', '');
+                            form.setValue('role', '');
+                          }}
+                        >
+                          Professional
+                        </Button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {userType && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="company_or_school"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{userType === 'student' ? 'School' : 'Company'}</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder={userType === 'student' ? 'e.g., Stanford University' : 'e.g., Google'} 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Role</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder={userType === 'student' ? 'e.g., Computer Science Student' : 'e.g., Software Engineer'} 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Register

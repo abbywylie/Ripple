@@ -8,6 +8,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from models.database_functions import (
     add_user,
+    update_user,
     add_contact,
     update_contact,
     delete_contact,
@@ -55,6 +56,8 @@ def user_to_dict(user: User) -> Dict[str, Any]:
         "user_id": user.user_id,
         "email": user.email,
         "name": user.name,
+        "company_or_school": user.company_or_school,
+        "role": user.role,
         "created_date_time": user.created_date_time.isoformat() if user.created_date_time else None,
     }
 
@@ -167,8 +170,13 @@ def get_upcoming_follow_ups_for_user(user_id: int, days_ahead: int = 7) -> List[
 
 
 # Write operations returning dicts
-def create_user(email: str, password_hash: str, name: str) -> Dict[str, Any]:
-    user = add_user(email=email, password_hash=password_hash, name=name)
+def create_user(email: str, password_hash: str, name: str, company_or_school: Optional[str] = None, role: Optional[str] = None) -> Dict[str, Any]:
+    user = add_user(email=email, password_hash=password_hash, name=name, company_or_school=company_or_school, role=role)
+    return user_to_dict(user)
+
+
+def update_user_service(user_id: int, name: Optional[str] = None, company_or_school: Optional[str] = None, role: Optional[str] = None) -> Dict[str, Any]:
+    user = update_user(user_id=user_id, name=name, company_or_school=company_or_school, role=role)
     return user_to_dict(user)
 
 

@@ -1,10 +1,11 @@
-import { Bell, Clock, Calendar, AlertCircle, Plus, CheckCircle } from "lucide-react";
+import { Bell, Clock, Calendar, AlertCircle, Plus, CheckCircle, User, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { followUpsApi, contactsApi } from "@/lib/api";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 // Helper function to parse date strings as local dates to avoid timezone issues
 const parseLocalDate = (dateString: string): Date | null => {
@@ -24,8 +25,11 @@ const parseLocalDate = (dateString: string): Date | null => {
 
 const Reminders = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [reminders, setReminders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const hasProfileInfo = user?.company_or_school && user?.role;
   // Load reminders data
   useEffect(() => {
     const loadReminders = async () => {
@@ -183,6 +187,28 @@ const Reminders = () => {
           New Reminder
         </Button>
       </div>
+
+      {!hasProfileInfo && (
+        <Card className="border-primary/50 bg-primary/5">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <User className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold mb-1">Complete Your Profile</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Add your company or school and role so others can learn more about you. This information will be visible to other users.
+                </p>
+                <Button onClick={() => navigate('/profile')} size="sm">
+                  <Edit className="h-4 w-4 mr-2" />
+                  Update Profile
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

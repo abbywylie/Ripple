@@ -31,12 +31,16 @@ export const authApi = {
     const response = await axios.post(`${API_BASE_URL}/api/login`, { email, password });
     return response.data;
   },
-  register: async (name: string, email: string, password: string) => {
-    const response = await axios.post(`${API_BASE_URL}/api/register`, { name, email, password });
+  register: async (name: string, email: string, password: string, company_or_school?: string, role?: string) => {
+    const response = await axios.post(`${API_BASE_URL}/api/register`, { name, email, password, company_or_school, role });
     return response.data;
   },
   getMe: async () => {
     const response = await apiClient.get('/api/me');
+    return response.data;
+  },
+  updateProfile: async (data: { name?: string; company_or_school?: string; role?: string }) => {
+    const response = await apiClient.put('/api/me', data);
     return response.data;
   },
 };

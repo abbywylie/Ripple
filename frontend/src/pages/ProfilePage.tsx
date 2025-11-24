@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { Button } from '@/components/ui/button';
@@ -6,14 +7,29 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { LogOut, Mail, User, BookOpen, Moon, Zap, Battery } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { LogOut, Mail, User, BookOpen, Moon, Zap, Battery, Edit, Save, X, Briefcase, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { resetTour } from '@/components/OnboardingTour';
 import { toast } from 'sonner';
+import { authApi } from '@/lib/api';
 
 const ProfilePage = () => {
   const { user, logout } = useAuth();
   const { darkMode, animationsEnabled, efficientLoading, setDarkMode, setAnimationsEnabled, setEfficientLoading } = useSettings();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedName, setEditedName] = useState('');
+  const [editedCompanyOrSchool, setEditedCompanyOrSchool] = useState('');
+  const [editedRole, setEditedRole] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setEditedName(user.name || '');
+      setEditedCompanyOrSchool(user.company_or_school || '');
+      setEditedRole(user.role || '');
+    }
+  }, [user]);
 
   if (!user) {
     return null;
@@ -24,6 +40,37 @@ const ProfilePage = () => {
     .map((n) => n[0])
     .join('')
     .toUpperCase() || user.email[0].toUpperCase();
+
+  const hasProfileInfo = user.company_or_school && user.role;
+
+  const handleSave = async () => {
+    if (!editedName.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await authApi.updateProfile({
+        name: editedName.trim(),
+        company_or_school: editedCompanyOrSchool.trim() || undefined,
+        role: editedRole.trim() || undefined,
+      });
+      toast.success('Profile updated successfully!');
+      // Force a page reload to update the auth context
+      window.location.reload();
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || 'Failed to update profile');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditedName(user.name || '');
+    setEditedCompanyOrSchool(user.company_or_school || '');
+    setEditedRole(user.role || '');
+    setIsEditing(false);
+  };
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -36,40 +83,136 @@ const ProfilePage = () => {
           </Button>
         </div>
 
+        {!hasProfileInfo && !isEditing && (
+          <Card className="mb-6 border-primary/50 bg-primary/5">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-4">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <User className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold mb-1">Complete Your Profile</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Add your company or school and role so others can learn more about you.
+                  </p>
+                  <Button onClick={() => setIsEditing(true)} size="sm">
+                    <Edit className="h-4 w-4 mr-2" />
+                    Add Profile Info
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
-          <CardHeader className="flex flex-row items-center gap-4">
-            <Avatar className="h-20 w-20">
-              <AvatarFallback className="text-2xl">{initials}</AvatarFallback>
-            </Avatar>
-            <div>
-              <CardTitle>{user.name || 'User'}</CardTitle>
-              <CardDescription>Account Information</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-20 w-20">
+                <AvatarFallback className="text-2xl">{initials}</AvatarFallback>
+              </Avatar>
+              <div>
+                <CardTitle>{user.name || 'User'}</CardTitle>
+                <CardDescription>Account Information</CardDescription>
+              </div>
             </div>
+            {!isEditing && (
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Profile
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-              <User className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Name</p>
-                <p className="font-medium">{user.name || 'Not provided'}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-              <Mail className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Email</p>
-                <p className="font-medium">{user.email}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-              <div className="h-5 w-5 flex items-center justify-center text-muted-foreground font-bold">
-                #
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">User ID</p>
-                <p className="font-medium">{user.userId}</p>
-              </div>
-            </div>
+            {isEditing ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    placeholder="Your name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="company_or_school">Company or School</Label>
+                  <Input
+                    id="company_or_school"
+                    value={editedCompanyOrSchool}
+                    onChange={(e) => setEditedCompanyOrSchool(e.target.value)}
+                    placeholder="e.g., Google or Stanford University"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role">Role</Label>
+                  <Input
+                    id="role"
+                    value={editedRole}
+                    onChange={(e) => setEditedRole(e.target.value)}
+                    placeholder="e.g., Software Engineer or Computer Science Student"
+                  />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button onClick={handleSave} disabled={isSaving} className="flex-1">
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                  <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                  <User className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Name</p>
+                    <p className="font-medium">{user.name || 'Not provided'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                  <Mail className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Email</p>
+                    <p className="font-medium">{user.email}</p>
+                  </div>
+                </div>
+                {user.company_or_school && (
+                  <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                    {user.role?.toLowerCase().includes('student') ? (
+                      <GraduationCap className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <Briefcase className="h-5 w-5 text-muted-foreground" />
+                    )}
+                    <div>
+                      <p className="text-sm text-muted-foreground">Company or School</p>
+                      <p className="font-medium">{user.company_or_school}</p>
+                    </div>
+                  </div>
+                )}
+                {user.role && (
+                  <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                    <Briefcase className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Role</p>
+                      <p className="font-medium">{user.role}</p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                  <div className="h-5 w-5 flex items-center justify-center text-muted-foreground font-bold">
+                    #
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">User ID</p>
+                    <p className="font-medium">{user.userId}</p>
+                  </div>
+                </div>
+              </>
+            )}
             <Separator className="my-6" />
             
             {/* UI Settings */}

@@ -7,6 +7,8 @@ interface User {
   userId: number;
   email: string;
   name?: string;
+  company_or_school?: string;
+  role?: string;
 }
 
 interface AuthContextType {
@@ -87,9 +89,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (name: string, email: string, password: string, company_or_school?: string, role?: string) => {
     try {
-      await authApi.register(name, email, password);
+      await authApi.register(name, email, password, company_or_school, role);
       toast({
         title: "Registration successful",
         description: "Now logging you in...",

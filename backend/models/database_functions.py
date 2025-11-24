@@ -27,6 +27,8 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    company_or_school: Mapped[Optional[str]] = mapped_column(String(200))
+    role: Mapped[Optional[str]] = mapped_column(String(200))
     created_date_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     # relationships
@@ -241,16 +243,35 @@ class get_session:
 
 
 # ---------- USERS ----------
-def add_user(*, email: str, password_hash: str, name: str) -> User:
+def add_user(*, email: str, password_hash: str, name: str, company_or_school: Optional[str] = None, role: Optional[str] = None) -> User:
     """Create a new user if email not taken. Returns the persisted User."""
     with get_session() as s:
         existing = s.execute(select(User).where(User.email == email)).scalar_one_or_none()
         if existing:
             raise AlreadyExistsError(f"user with email {email} already exists")
 
-        user = User(email=email, password_hash=password_hash, name=name)
+        user = User(email=email, password_hash=password_hash, name=name, company_or_school=company_or_school, role=role)
         s.add(user)
         s.flush()   # populate user.user_id
+        s.refresh(user)
+        return user
+
+
+def update_user(*, user_id: int, name: Optional[str] = None, company_or_school: Optional[str] = None, role: Optional[str] = None) -> User:
+    """Update user information. Returns the updated User."""
+    with get_session() as s:
+        user = s.execute(select(User).where(User.user_id == user_id)).scalar_one_or_none()
+        if not user:
+            raise NotFoundError(f"user with id {user_id} not found")
+        
+        if name is not None:
+            user.name = name
+        if company_or_school is not None:
+            user.company_or_school = company_or_school
+        if role is not None:
+            user.role = role
+        
+        s.flush()
         s.refresh(user)
         return user
 

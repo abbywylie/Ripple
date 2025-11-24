@@ -15,7 +15,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from services.service_api import create_user, create_contact, update_contact_service, delete_contact_service, create_meeting, update_meeting_service, delete_meeting_service, get_upcoming_meetings_service, get_meetings_for_date_service, get_user_by_email, list_contacts_for_user, list_meetings_for_contact, list_meetings_for_user, get_upcoming_follow_ups_for_user, get_goals_for_user, create_goal, update_goal_service, delete_goal_service, get_goal_steps, create_goal_step, update_goal_step_service, delete_goal_step_service, get_interactions_for_contact, get_interactions_for_user, create_interaction, update_interaction_service, delete_interaction_service, get_overdue_follow_ups_for_user, get_upcoming_follow_ups_interactions_for_user, get_platform_stats
+from services.service_api import create_user, update_user_service, create_contact, update_contact_service, delete_contact_service, create_meeting, update_meeting_service, delete_meeting_service, get_upcoming_meetings_service, get_meetings_for_date_service, get_user_by_email, list_contacts_for_user, list_meetings_for_contact, list_meetings_for_user, get_upcoming_follow_ups_for_user, get_goals_for_user, create_goal, update_goal_service, delete_goal_service, get_goal_steps, create_goal_step, update_goal_step_service, delete_goal_step_service, get_interactions_for_contact, get_interactions_for_user, create_interaction, update_interaction_service, delete_interaction_service, get_overdue_follow_ups_for_user, get_upcoming_follow_ups_interactions_for_user, get_platform_stats
 from services.email_parser import parse_email_thread, suggest_actions, generate_interaction_tag
 from services.rag_service import answer_rag_question
 from models.database_functions import AlreadyExistsError, NotFoundError, get_session, User
@@ -70,11 +70,19 @@ class UserRegister(BaseModel):
     email: str
     password: str
     name: str
+    company_or_school: Optional[str] = None
+    role: Optional[str] = None
 
 
 class UserLogin(BaseModel):
     email: str
     password: str
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    company_or_school: Optional[str] = None
+    role: Optional[str] = None
 
 
 class Token(BaseModel):
@@ -246,9 +254,17 @@ def register(user: UserRegister):
         user_data = create_user(
             email=user.email, 
             password_hash=hash_password(user.password), 
-            name=user.name
+            name=user.name,
+            company_or_school=user.company_or_school,
+            role=user.role
         )
-        return {"userId": user_data["user_id"], "email": user_data["email"], "name": user_data["name"]}
+        return {
+            "userId": user_data["user_id"], 
+            "email": user_data["email"], 
+            "name": user_data["name"],
+            "company_or_school": user_data.get("company_or_school"),
+            "role": user_data.get("role")
+        }
     except AlreadyExistsError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -304,12 +320,35 @@ def get_profile(token: str = Depends(oauth2_scheme)):
             return {
                 "userId": db_user.user_id,
                 "email": db_user.email,
-                "name": db_user.name
+                "name": db_user.name,
+                "company_or_school": db_user.company_or_school,
+                "role": db_user.role
             }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+
+@app.put("/api/me")
+def update_profile(payload: UserUpdate, token: str = Depends(oauth2_scheme)):
+    try:
+        jwt_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = jwt_payload["user_id"]
+        
+        user_data = update_user_service(
+            user_id=user_id,
+            name=payload.name,
+            company_or_school=payload.company_or_school,
+            role=payload.role
+        )
+        return user_data
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @app.post("/contacts", response_model=dict)
