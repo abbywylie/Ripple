@@ -22,7 +22,17 @@ const removeHighlightClasses = (element: HTMLElement | null) => {
   if (!element) return;
   HIGHLIGHT_CLASSES.forEach((cls) => element.classList.remove(cls));
 };
-const TOUR_STEPS = [
+interface TourStep {
+  id: string;
+  target: string;
+  title: string;
+  description: string;
+  action: string;
+  route: string | null;
+  optional?: boolean;
+}
+
+const TOUR_STEPS: TourStep[] = [
   {
     id: "contacts",
     target: '[data-tour="contacts"]',
@@ -35,9 +45,50 @@ const TOUR_STEPS = [
     id: "add-contact",
     target: '[data-tour="add-contact"]',
     title: "Add New Connections",
-    description: "This is where you create entries for new people you meet – include name, role, and how you met.",
-    action: "Click + Add Contact",
+    description: "Click the 'Add Contact' button to create entries for new people you meet. Fill in their name, company, role, and how you met.",
+    action: "Click + Add Contact to see the form",
     route: "/contacts",
+  },
+  {
+    id: "contact-card",
+    target: '[data-tour="contact-card"]',
+    title: "View Contact Details",
+    description: "Click on any contact card to view their full profile. Here you can see all their information, interactions, and meetings.",
+    action: "Click on a contact card to view details",
+    route: "/contacts",
+    optional: true, // Make this optional since it requires a contact to exist
+  },
+  {
+    id: "log-interaction",
+    target: '[data-tour="log-interaction"]',
+    title: "Log Your Interactions",
+    description: "Track every conversation! Click 'Log Interaction' to record emails, calls, meetings, or any other communication with this contact.",
+    action: "Click Log Interaction",
+    route: null, // Will be set dynamically when on contact detail page
+  },
+  {
+    id: "paste-email",
+    target: '[data-tour="paste-email"]',
+    title: "Quick Email Logging",
+    description: "Save time! Use 'Paste Email' to automatically extract details from email threads. Ripple will parse the email and suggest tags.",
+    action: "Click Paste Email to try it",
+    route: null, // Will be set dynamically when on contact detail page
+  },
+  {
+    id: "interactions-section",
+    target: '[data-tour="interactions-section"]',
+    title: "Interaction History",
+    description: "See all your past communications in one place. This timeline helps you remember context for future conversations.",
+    action: "View your interaction history",
+    route: null, // Will be set dynamically when on contact detail page
+  },
+  {
+    id: "meetings-section",
+    target: '[data-tour="meetings-section"]',
+    title: "Track Meetings",
+    description: "Keep track of all your meetings with this contact. Schedule upcoming ones and review past conversations.",
+    action: "View meetings section",
+    route: null, // Will be set dynamically when on contact detail page
   },
   {
     id: "meetings",
@@ -119,6 +170,39 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
 
     const step = TOUR_STEPS[currentStep];
     
+    // Skip optional steps if element doesn't exist
+    if (step.optional) {
+      const element = document.querySelector(step.target) as HTMLElement;
+      if (!element) {
+        // Skip this step and move to next
+        setTimeout(() => {
+          if (currentStep < TOUR_STEPS.length - 1) {
+            setCurrentStep((prev) => prev + 1);
+          } else {
+            completeTour();
+          }
+        }, 100);
+        return;
+      }
+    }
+    
+    // Handle dynamic routes for contact detail steps
+    if (!step.route && (step.id === "log-interaction" || step.id === "paste-email" || step.id === "interactions-section" || step.id === "meetings-section")) {
+      // These steps need to be on a contact detail page
+      // If we're not on a contact detail page, skip these steps
+      if (!location.pathname.match(/^\/contacts\/\d+$/)) {
+        // Skip these steps if not on contact detail page
+        setTimeout(() => {
+          if (currentStep < TOUR_STEPS.length - 1) {
+            setCurrentStep((prev) => prev + 1);
+          } else {
+            completeTour();
+          }
+        }, 100);
+        return;
+      }
+    }
+    
     // Navigate first if needed
     if (step.route && location.pathname !== step.route) {
       navigate(step.route);
@@ -130,6 +214,18 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           setHighlightedElement(element);
           element.scrollIntoView({ behavior: "smooth", block: "center" });
           addHighlightClasses(element);
+        } else if (!step.optional) {
+          // If element not found and not optional, wait a bit and try again
+          const timer = setTimeout(() => {
+            const retryElement = document.querySelector(step.target) as HTMLElement;
+            if (retryElement) {
+              removeHighlightClasses(highlightedElement);
+              setHighlightedElement(retryElement);
+              retryElement.scrollIntoView({ behavior: "smooth", block: "center" });
+              addHighlightClasses(retryElement);
+            }
+          }, 500);
+          return () => clearTimeout(timer);
         }
       }, 500);
     } else {
@@ -139,8 +235,8 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
         setHighlightedElement(element);
         element.scrollIntoView({ behavior: "smooth", block: "center" });
         addHighlightClasses(element);
-      } else {
-        // If element not found, wait a bit and try again
+      } else if (!step.optional) {
+        // If element not found and not optional, wait a bit and try again
         const timer = setTimeout(() => {
           const retryElement = document.querySelector(step.target) as HTMLElement;
           if (retryElement) {
