@@ -24,6 +24,7 @@ import NotFound from "./pages/NotFound";
 import RAGAssistant from "./components/RAGAssistant";
 import { OnboardingTour } from "./components/OnboardingTour";
 import { ReminderIntroModal } from "./components/ReminderIntroModal";
+import { MobileTopMenu } from "./components/MobileTopMenu";
 import { SettingsProvider, useSettings } from "./contexts/SettingsContext";
 
 // Helper to get efficient loading setting from localStorage
@@ -60,8 +61,11 @@ const createQueryClient = (efficientLoading?: boolean) => {
 const AppLayout = ({ children }: { children: React.ReactNode }) => (
   <SidebarProvider>
     <div className="min-h-screen flex w-full">
-      <AppSidebar />
-      <main className="flex-1 overflow-auto">{children}</main>
+      <MobileTopMenu />
+      <div className="hidden md:block">
+        <AppSidebar />
+      </div>
+      <main className="flex-1 overflow-auto pt-14 md:pt-0">{children}</main>
       <RAGAssistant />
       <ReminderIntroModal />
       <OnboardingTour />

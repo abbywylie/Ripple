@@ -53,8 +53,8 @@ export const ReminderIntroModal = () => {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className={`${isMobile ? 'max-w-[95vw] max-h-[90vh] p-4' : 'max-w-2xl'} overflow-hidden flex flex-col`}>
-        <DialogHeader className={`${isMobile ? 'space-y-1 pb-2' : 'space-y-2'}`}>
+      <DialogContent className={`${isMobile ? 'max-w-[95vw] max-h-[90vh] p-4' : 'max-w-2xl'} flex flex-col ${isMobile ? 'overflow-y-auto' : 'overflow-hidden'}`}>
+        <DialogHeader className={`${isMobile ? 'space-y-1 pb-2 flex-shrink-0' : 'space-y-2'}`}>
           <DialogTitle className={`${isMobile ? 'text-lg' : 'text-2xl'} flex items-center gap-2`}>
             <Sparkles className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'} text-primary`} />
             {isMobile ? 'Ripple Reminders' : 'Welcome to Ripple Reminders'}
@@ -66,7 +66,7 @@ export const ReminderIntroModal = () => {
           )}
         </DialogHeader>
 
-        <div className={`${isMobile ? 'space-y-3 text-xs' : 'space-y-6 text-sm'} text-muted-foreground ${isMobile ? 'leading-snug' : 'leading-relaxed'} overflow-y-auto flex-1 pr-1`}>
+        <div className={`${isMobile ? 'space-y-3 text-xs' : 'space-y-6 text-sm'} text-muted-foreground ${isMobile ? 'leading-snug' : 'leading-relaxed'} ${isMobile ? 'overflow-y-auto flex-1 min-h-0' : ''} pr-1`}>
           {isMobile ? (
             // Compact mobile version
             <>
@@ -161,7 +161,7 @@ export const ReminderIntroModal = () => {
           )}
         </div>
 
-        <div className={`flex ${isMobile ? 'flex-col gap-2 pt-3 border-t' : 'flex-row md:justify-between gap-3 pt-4'}`}>
+        <div className={`flex ${isMobile ? 'flex-col gap-2 pt-3 border-t flex-shrink-0' : 'flex-row md:justify-between gap-3 pt-4'}`}>
           <Button 
             variant="ghost" 
             onClick={handleNeverShow} 
