@@ -981,6 +981,7 @@ const Contacts = () => {
               {contactsByCompany[company].map((contact, index) => (
                 <Card 
                   key={index} 
+                  data-tour="contact-card"
                   className="glass-card border-border hover:border-primary/50 transition-all cursor-pointer group"
                   onClick={() => handleContactClick(contact)}
                 >

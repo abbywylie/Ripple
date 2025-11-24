@@ -338,7 +338,7 @@ const ContactDetail = () => {
         <div className="flex gap-2">
           <Dialog open={isEmailPasteDialogOpen} onOpenChange={setIsEmailPasteDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="border-primary text-primary hover:bg-primary/10">
+              <Button data-tour="paste-email" variant="outline" className="border-primary text-primary hover:bg-primary/10">
                 <Clipboard className="h-4 w-4 mr-2" />
                 Paste Email
               </Button>
@@ -526,7 +526,7 @@ const ContactDetail = () => {
 
           <Dialog open={isInteractionDialogOpen} onOpenChange={setIsInteractionDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90">
+              <Button data-tour="log-interaction" className="bg-primary hover:bg-primary/90">
                 <Plus className="h-4 w-4 mr-2" />
                 Log Interaction
               </Button>
@@ -737,7 +737,7 @@ const ContactDetail = () => {
       {/* Interaction History */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle data-tour="interactions-section" className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
             Interaction History ({interactions.length})
           </CardTitle>
@@ -847,13 +847,15 @@ const ContactDetail = () => {
 
       {/* Meetings */}
       {user?.userId && contactId && (
-        <MeetingList 
-          contactId={parseInt(contactId)} 
-          userId={user.userId}
-          onMeetingChange={() => {
-            // Optionally reload contact data if needed
-          }}
-        />
+        <div data-tour="meetings-section">
+          <MeetingList 
+            contactId={parseInt(contactId)} 
+            userId={user.userId}
+            onMeetingChange={() => {
+              // Optionally reload contact data if needed
+            }}
+          />
+        </div>
       )}
     </div>
   );
