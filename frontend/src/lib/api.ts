@@ -39,7 +39,7 @@ export const authApi = {
     const response = await apiClient.get('/api/me');
     return response.data;
   },
-  updateProfile: async (data: { name?: string; company_or_school?: string; role?: string }) => {
+  updateProfile: async (data: { name?: string; company_or_school?: string; role?: string; experience_level?: string; onboarding_completed?: boolean }) => {
     const response = await apiClient.put('/api/me', data);
     return response.data;
   },

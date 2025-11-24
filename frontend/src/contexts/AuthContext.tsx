@@ -9,6 +9,8 @@ interface User {
   name?: string;
   company_or_school?: string;
   role?: string;
+  experience_level?: string;
+  onboarding_completed?: boolean;
 }
 
 interface AuthContextType {

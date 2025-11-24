@@ -25,6 +25,7 @@ import RAGAssistant from "./components/RAGAssistant";
 import { OnboardingTour } from "./components/OnboardingTour";
 import { ReminderIntroModal } from "./components/ReminderIntroModal";
 import { MobileTopMenu } from "./components/MobileTopMenu";
+import { DynamicOnboarding } from "./components/DynamicOnboarding";
 import { SettingsProvider, useSettings } from "./contexts/SettingsContext";
 
 // Helper to get efficient loading setting from localStorage
@@ -68,6 +69,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => (
       <main className="flex-1 overflow-auto pt-14 md:pt-0">{children}</main>
       <RAGAssistant />
       <ReminderIntroModal />
+      <DynamicOnboarding />
       <OnboardingTour />
     </div>
   </SidebarProvider>
