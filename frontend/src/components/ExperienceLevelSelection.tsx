@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { authApi } from "@/lib/api";
 import { toast } from "sonner";
 
-type ExperienceLevel = "beginner" | "intermediate" | "experienced";
+type ExperienceLevel = "beginner" | "intermediate" | "advanced";
 
 interface ExperienceLevelSelectionProps {
   open: boolean;
@@ -52,8 +52,8 @@ export const ExperienceLevelSelection = ({ open, onComplete }: ExperienceLevelSe
       color: "bg-green-50 border-green-200 text-green-900 hover:bg-green-100",
     },
     {
-      level: "experienced" as ExperienceLevel,
-      title: "I'm experienced",
+      level: "advanced" as ExperienceLevel,
+      title: "I'm a confident networker",
       subtitle: "Want advanced tools",
       icon: Zap,
       description: "I'm comfortable with networking and want powerful features",

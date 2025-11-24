@@ -47,7 +47,84 @@ const STEPS = [
   },
   {
     id: 2,
-    title: "Set Your First Goal",
+    title: "How to Add Your First Contact",
+    content: (
+      <div className="space-y-4">
+        <div className="bg-muted rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Step-by-step guide:</h3>
+          </div>
+          <ol className="text-sm space-y-2 list-decimal list-inside text-muted-foreground">
+            <li>Click the "Add Contact" button in the Contacts page</li>
+            <li>Fill in their name, company, and role</li>
+            <li>Add how you met them (optional but helpful!)</li>
+            <li>Set a reminder for when to follow up</li>
+          </ol>
+        </div>
+        <div className="bg-primary/10 rounded-lg p-3">
+          <p className="text-xs text-muted-foreground">
+            💡 <strong>Pro tip:</strong> Use email templates to make your outreach easier. 
+            Ripple provides ready-to-use templates for different situations!
+          </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 3,
+    title: "How to Use Pre-Written Templates",
+    content: (
+      <div className="space-y-4">
+        <div className="bg-muted rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Email Templates:</h3>
+          </div>
+          <ul className="text-sm space-y-2 text-muted-foreground">
+            <li>• Ripple provides pre-written email templates for common networking scenarios</li>
+            <li>• Use templates for informational interview requests, follow-ups, thank you emails</li>
+            <li>• Customize templates to match your voice and situation</li>
+            <li>• Save your customized templates for future use</li>
+          </ul>
+        </div>
+        <div className="bg-primary/10 rounded-lg p-3">
+          <p className="text-xs text-muted-foreground">
+            💡 <strong>Tip:</strong> Templates save time and help you maintain a professional tone!
+          </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 4,
+    title: "Setting a Follow-Up Reminder",
+    content: (
+      <div className="space-y-4">
+        <div className="bg-muted rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Bell className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">How reminders work:</h3>
+          </div>
+          <ul className="text-sm space-y-2 text-muted-foreground">
+            <li>• Reminders help you stay consistent with follow-ups</li>
+            <li>• Set a reminder when you add a contact or after a meeting</li>
+            <li>• Ripple will notify you when it's time to reach out</li>
+            <li>• Start with a 7-day follow-up reminder for new contacts</li>
+          </ul>
+        </div>
+        <div className="bg-accent/10 rounded-lg p-3">
+          <p className="text-xs text-muted-foreground">
+            💡 <strong>Remember:</strong> Consistency is key! Even a quick "checking in" message 
+            keeps relationships warm.
+          </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 5,
+    title: "Creating Your First Goal",
     content: (
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
@@ -77,52 +154,25 @@ const STEPS = [
     ),
   },
   {
-    id: 3,
-    title: "Add Your First Contact",
+    id: 6,
+    title: "Dashboard Overview",
     content: (
       <div className="space-y-4">
         <div className="bg-muted rounded-lg p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold">Step-by-step guide:</h3>
+            <Sparkles className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Your Dashboard:</h3>
           </div>
-          <ol className="text-sm space-y-2 list-decimal list-inside text-muted-foreground">
-            <li>Click the "Add Contact" button in the Contacts page</li>
-            <li>Fill in their name, company, and role</li>
-            <li>Add how you met them (optional but helpful!)</li>
-            <li>Set a reminder for when to follow up</li>
-          </ol>
+          <ul className="text-sm space-y-2 text-muted-foreground">
+            <li>• View your contacts, goals, and reminders at a glance</li>
+            <li>• Quick actions to add contacts or create goals</li>
+            <li>• Track your progress with the checklist</li>
+            <li>• Get contextual tips based on your activity</li>
+          </ul>
         </div>
         <div className="bg-primary/10 rounded-lg p-3">
           <p className="text-xs text-muted-foreground">
-            💡 <strong>Pro tip:</strong> Use email templates to make your outreach easier. 
-            Ripple provides ready-to-use templates for different situations!
-          </p>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: 4,
-    title: "Set Your First Reminder",
-    content: (
-      <div className="space-y-4">
-        <div className="bg-muted rounded-lg p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold">How reminders work:</h3>
-          </div>
-          <ul className="text-sm space-y-2 text-muted-foreground">
-            <li>• Reminders help you stay consistent with follow-ups</li>
-            <li>• Set a reminder when you add a contact or after a meeting</li>
-            <li>• Ripple will notify you when it's time to reach out</li>
-            <li>• Start with a 7-day follow-up reminder for new contacts</li>
-          </ul>
-        </div>
-        <div className="bg-accent/10 rounded-lg p-3">
-          <p className="text-xs text-muted-foreground">
-            💡 <strong>Remember:</strong> Consistency is key! Even a quick "checking in" message 
-            keeps relationships warm.
+            💡 <strong>Next:</strong> Complete 3 out of 5 basic actions to unlock Intermediate features!
           </p>
         </div>
       </div>

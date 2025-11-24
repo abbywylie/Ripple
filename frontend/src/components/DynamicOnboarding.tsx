@@ -7,7 +7,7 @@ import { IntermediateOnboarding } from "./onboarding/IntermediateOnboarding";
 import { ExperiencedOnboarding } from "./onboarding/ExperiencedOnboarding";
 import { authApi } from "@/lib/api";
 
-type ExperienceLevel = "beginner" | "intermediate" | "experienced";
+type ExperienceLevel = "beginner" | "intermediate" | "advanced";
 
 export const DynamicOnboarding = () => {
   const { user } = useAuth();
@@ -68,7 +68,7 @@ export const DynamicOnboarding = () => {
         return <BeginnerOnboarding open={true} onComplete={handleOnboardingComplete} />;
       case "intermediate":
         return <IntermediateOnboarding open={true} onComplete={handleOnboardingComplete} />;
-      case "experienced":
+      case "advanced":
         return <ExperiencedOnboarding open={true} onComplete={handleOnboardingComplete} />;
       default:
         return null;
