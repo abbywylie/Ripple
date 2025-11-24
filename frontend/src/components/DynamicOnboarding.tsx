@@ -24,15 +24,20 @@ export const DynamicOnboarding = () => {
       return;
     }
 
-    // If user hasn't completed onboarding and doesn't have experience level
-    if (!user.onboarding_completed && !user.experience_level) {
-      setShowExperienceSelection(true);
-    }
-    // If user has experience level but hasn't completed onboarding
-    else if (!user.onboarding_completed && user.experience_level) {
-      setExperienceLevel(user.experience_level as ExperienceLevel);
-      setShowOnboarding(true);
-    }
+    // Small delay to ensure page is fully loaded
+    const timer = setTimeout(() => {
+      // If user hasn't completed onboarding and doesn't have experience level
+      if (!user.onboarding_completed && !user.experience_level) {
+        setShowExperienceSelection(true);
+      }
+      // If user has experience level but hasn't completed onboarding
+      else if (!user.onboarding_completed && user.experience_level) {
+        setExperienceLevel(user.experience_level as ExperienceLevel);
+        setShowOnboarding(true);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
   }, [user, location.pathname]);
 
   const handleExperienceSelected = (level: ExperienceLevel) => {
