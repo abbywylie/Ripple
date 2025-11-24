@@ -589,6 +589,52 @@ def rag_query_endpoint(payload: RAGQueryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Database Migration Endpoint (one-time use)
+@app.post("/api/migrate/add-user-fields")
+def migrate_add_user_fields():
+    """Add company_or_school and role columns to users table. One-time migration."""
+    try:
+        from sqlalchemy import text
+        from models.database_functions import engine
+        
+        with engine.connect() as conn:
+            # Check if columns already exist
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'users' 
+                AND column_name IN ('company_or_school', 'role')
+            """))
+            existing_columns = [row[0] for row in result.fetchall()]
+            
+            added_columns = []
+            
+            if 'company_or_school' not in existing_columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN company_or_school VARCHAR(200)"))
+                conn.commit()
+                added_columns.append('company_or_school')
+            
+            if 'role' not in existing_columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(200)"))
+                conn.commit()
+                added_columns.append('role')
+            
+            if added_columns:
+                return {
+                    "success": True,
+                    "message": f"Successfully added columns: {', '.join(added_columns)}",
+                    "added_columns": added_columns
+                }
+            else:
+                return {
+                    "success": True,
+                    "message": "Columns already exist",
+                    "existing_columns": existing_columns
+                }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
+
+
 # Serve the built frontend (the Vite build output) - MUST be after all API routes
 # This will serve static files and handle the root route
 frontend_dist_path = os.path.join(os.path.dirname(__file__), "../../frontend/dist")
