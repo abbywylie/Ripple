@@ -24,6 +24,7 @@ import { contactsApi, goalsApi, followUpsApi, interactionsApi, meetingsApi } fro
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { networkingTips } from "@/data/networking-tips";
+import { ContextualHelp } from "@/components/ContextualHelp";
 
 // Helper function to parse date strings as local dates to avoid timezone issues
 const parseLocalDate = (dateString: string): Date | null => {
@@ -402,7 +403,16 @@ const Dashboard = () => {
             Welcome back, {user?.name || user?.email?.split('@')[0] || 'User'}!
           </h1>
           <p className="text-muted-foreground">
-            Here's what's happening with your network
+            {(() => {
+              if (user?.experience_level === 'beginner') {
+                return "You're on your way to your first networking goal. Keep going!";
+              } else if (user?.experience_level === 'intermediate') {
+                return "Here's what's happening with your network";
+              } else if (user?.experience_level === 'experienced') {
+                return "Track your networking activities and view relationship health";
+              }
+              return "Here's what's happening with your network";
+            })()}
             {loading && <span className="text-sm"> (Loading...)</span>}
           </p>
         </div>
@@ -470,6 +480,65 @@ const Dashboard = () => {
           </Card>
         ))}
       </div>
+
+      {/* Contextual Help */}
+      <ContextualHelp />
+
+      {/* Personalized Goals Card based on Experience Level */}
+      {user?.experience_level && goals.length > 0 && (
+        <Card className="glass-card border-border/50 bg-gradient-to-r from-primary/5 to-accent/5">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold">Your Goals Progress</h3>
+                </div>
+                {user.experience_level === 'beginner' && (
+                  <p className="text-sm text-muted-foreground mb-3">
+                    You're on your way to your first networking goal. Keep going! 🎯
+                  </p>
+                )}
+                {user.experience_level === 'intermediate' && completionRate > 0 && (
+                  <p className="text-sm text-muted-foreground mb-3">
+                    You're {completionRate}% to your goal of {goals.length} {goals.length === 1 ? 'connection' : 'connections'}. 
+                    {completionRate >= 50 && " Need help drafting a message?"}
+                  </p>
+                )}
+                {user.experience_level === 'experienced' && (
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Track your networking activities and view relationship health metrics.
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => navigate('/goals')}
+                  >
+                    View All Goals
+                  </Button>
+                  {user.experience_level === 'beginner' && (
+                    <Button 
+                      size="sm"
+                      onClick={() => navigate('/contacts')}
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      Add Your First Contact
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {completionRate > 0 && (
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-primary">{completionRate}%</div>
+                  <div className="text-xs text-muted-foreground">Complete</div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Pinned Answers Section */}
       {pinnedAnswers.length > 0 && (

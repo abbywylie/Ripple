@@ -83,6 +83,8 @@ class UserUpdate(BaseModel):
     name: Optional[str] = None
     company_or_school: Optional[str] = None
     role: Optional[str] = None
+    experience_level: Optional[str] = None
+    onboarding_completed: Optional[bool] = None
 
 
 class Token(BaseModel):
@@ -322,7 +324,9 @@ def get_profile(token: str = Depends(oauth2_scheme)):
                 "email": db_user.email,
                 "name": db_user.name,
                 "company_or_school": db_user.company_or_school,
-                "role": db_user.role
+                "role": db_user.role,
+                "experience_level": db_user.experience_level,
+                "onboarding_completed": db_user.onboarding_completed
             }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
@@ -340,7 +344,9 @@ def update_profile(payload: UserUpdate, token: str = Depends(oauth2_scheme)):
             user_id=user_id,
             name=payload.name,
             company_or_school=payload.company_or_school,
-            role=payload.role
+            role=payload.role,
+            experience_level=payload.experience_level,
+            onboarding_completed=payload.onboarding_completed
         )
         return user_data
     except jwt.ExpiredSignatureError:
