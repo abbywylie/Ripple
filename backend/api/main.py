@@ -611,7 +611,7 @@ def migrate_add_user_fields():
                 SELECT column_name 
                 FROM information_schema.columns 
                 WHERE table_name = 'users' 
-                AND column_name IN ('company_or_school', 'role')
+                AND column_name IN ('company_or_school', 'role', 'experience_level', 'onboarding_completed')
             """))
             existing_columns = [row[0] for row in result.fetchall()]
             
@@ -625,6 +625,14 @@ def migrate_add_user_fields():
                 session.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(200)"))
                 added_columns.append('role')
             
+            if 'experience_level' not in existing_columns:
+                session.execute(text("ALTER TABLE users ADD COLUMN experience_level VARCHAR(50)"))
+                added_columns.append('experience_level')
+            
+            if 'onboarding_completed' not in existing_columns:
+                session.execute(text("ALTER TABLE users ADD COLUMN onboarding_completed BOOLEAN DEFAULT FALSE"))
+                added_columns.append('onboarding_completed')
+            
             # Commit the transaction
             session.commit()
             
@@ -633,7 +641,7 @@ def migrate_add_user_fields():
                 SELECT column_name 
                 FROM information_schema.columns 
                 WHERE table_name = 'users' 
-                AND column_name IN ('company_or_school', 'role')
+                AND column_name IN ('company_or_school', 'role', 'experience_level', 'onboarding_completed')
             """))
             verified_columns = [row[0] for row in result.fetchall()]
             
