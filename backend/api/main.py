@@ -598,7 +598,7 @@ def rag_query_endpoint(payload: RAGQueryRequest):
 # Database Migration Endpoint (one-time use)
 @app.post("/api/migrate/add-user-fields")
 def migrate_add_user_fields():
-    """Add company_or_school and role columns to users table. One-time migration."""
+    """Add company_or_school, role, experience_level, and onboarding_completed columns to users table. One-time migration."""
     try:
         from sqlalchemy import text
         from models.database_functions import engine, Base
