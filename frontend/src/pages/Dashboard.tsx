@@ -1,4 +1,4 @@
-import { Users, Target, TrendingUp, Clock, Plus, UserPlus, ChevronDown, Calendar, ExternalLink, BookOpen, Pin, X, MessageCircle, Edit2, Check, Save } from "lucide-react";
+import { Users, Target, TrendingUp, Clock, Plus, UserPlus, ChevronDown, Calendar, ExternalLink, BookOpen, Pin, X, MessageCircle, Edit2, Check, Save, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +11,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { contactsApi, goalsApi, followUpsApi, interactionsApi, meetingsApi } from "@/lib/api";
 import { useEffect, useState } from "react";
@@ -47,6 +55,8 @@ const Dashboard = () => {
   const [pinnedAnswers, setPinnedAnswers] = useState<any[]>([]);
   const [editingPinId, setEditingPinId] = useState<number | null>(null);
   const [editedContent, setEditedContent] = useState<string>("");
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
+  const FEEDBACK_FORM_URL = "https://forms.gle/tiKQHNF6k7Xy6jiw9";
 
   // Load pinned answers from localStorage
   useEffect(() => {
@@ -86,6 +96,58 @@ const Dashboard = () => {
     return () => {
       window.removeEventListener("pinnedAnswerUpdated", handlePinnedUpdate);
       window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  // Feedback popup after 5 minutes
+  useEffect(() => {
+    // Check if user has dismissed feedback forever
+    const feedbackDismissed = localStorage.getItem("feedbackDismissedForever");
+    if (feedbackDismissed === "true") {
+      return;
+    }
+
+    // Set page load time
+    const pageLoadTime = Date.now();
+    
+    // Check if there's a stored time from previous visit
+    const storedTime = localStorage.getItem("dashboardTimeSpent");
+    const timeSpent = storedTime ? parseInt(storedTime, 10) : 0;
+    
+    // If already spent 5 minutes or more, show immediately
+    if (timeSpent >= 300000) {
+      setShowFeedbackDialog(true);
+      localStorage.removeItem("dashboardTimeSpent");
+      return;
+    }
+    
+    // Calculate remaining time to show popup (5 minutes = 300000ms)
+    const timeUntilPopup = 300000 - timeSpent;
+    
+    const timer = setTimeout(() => {
+      setShowFeedbackDialog(true);
+      // Clear stored time since we've shown the popup
+      localStorage.removeItem("dashboardTimeSpent");
+    }, timeUntilPopup);
+
+    // Track time spent on page
+    const interval = setInterval(() => {
+      const currentTime = Date.now();
+      const elapsed = currentTime - pageLoadTime;
+      const totalTime = timeSpent + elapsed;
+      
+      // Only store if we haven't shown the popup yet
+      if (totalTime < 300000) {
+        localStorage.setItem("dashboardTimeSpent", totalTime.toString());
+      } else {
+        // If we've reached 5 minutes, clear the interval
+        clearInterval(interval);
+      }
+    }, 10000); // Update every 10 seconds
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
     };
   }, []);
 
@@ -319,6 +381,19 @@ const Dashboard = () => {
     setEditedContent("");
   };
 
+  // Handle feedback dialog dismissal
+  const handleDismissFeedback = (dismissForever: boolean) => {
+    setShowFeedbackDialog(false);
+    if (dismissForever) {
+      localStorage.setItem("feedbackDismissedForever", "true");
+      localStorage.removeItem("dashboardTimeSpent");
+    }
+  };
+
+  const handleOpenFeedback = () => {
+    window.open(FEEDBACK_FORM_URL, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="p-8 space-y-8 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -331,44 +406,54 @@ const Dashboard = () => {
             {loading && <span className="text-sm"> (Loading...)</span>}
           </p>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30">
-              <Plus className="h-4 w-4 mr-2" />
-              Quick Action
-              <ChevronDown className="h-4 w-4 ml-1" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/contacts')} className="cursor-pointer">
-              <Users className="h-4 w-4 mr-2" />
-              <span>Manage Contacts</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/goals')} className="cursor-pointer">
-              <Target className="h-4 w-4 mr-2" />
-              <span>Manage Goals</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/reminders')} className="cursor-pointer">
-              <Clock className="h-4 w-4 mr-2" />
-              <span>View Reminders</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/contacts')} className="cursor-pointer">
-              <UserPlus className="h-4 w-4 mr-2" />
-              <span>Quick Add Contact</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/goals')} className="cursor-pointer">
-              <Target className="h-4 w-4 mr-2" />
-              <span>Quick Add Goal</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/progress')} className="cursor-pointer">
-              <TrendingUp className="h-4 w-4 mr-2" />
-              <span>View Progress</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            onClick={handleOpenFeedback}
+            className="flex items-center gap-2"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Leave Feedback
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30">
+                <Plus className="h-4 w-4 mr-2" />
+                Quick Action
+                <ChevronDown className="h-4 w-4 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/contacts')} className="cursor-pointer">
+                <Users className="h-4 w-4 mr-2" />
+                <span>Manage Contacts</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/goals')} className="cursor-pointer">
+                <Target className="h-4 w-4 mr-2" />
+                <span>Manage Goals</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/reminders')} className="cursor-pointer">
+                <Clock className="h-4 w-4 mr-2" />
+                <span>View Reminders</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/contacts')} className="cursor-pointer">
+                <UserPlus className="h-4 w-4 mr-2" />
+                <span>Quick Add Contact</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/goals')} className="cursor-pointer">
+                <Target className="h-4 w-4 mr-2" />
+                <span>Quick Add Goal</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/progress')} className="cursor-pointer">
+                <TrendingUp className="h-4 w-4 mr-2" />
+                <span>View Progress</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -602,6 +687,46 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Feedback Dialog */}
+      <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Help Us Improve!</DialogTitle>
+            <DialogDescription>
+              We'd love to hear your feedback about your experience with Ripple. Your input helps us make networking easier and more effective for everyone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              This quick survey takes about 5-7 minutes and will help shape future updates.
+            </p>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => handleDismissFeedback(false)}
+              className="w-full sm:w-auto"
+            >
+              Maybe Later
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => handleDismissFeedback(true)}
+              className="w-full sm:w-auto text-muted-foreground"
+            >
+              Don't Ask Again
+            </Button>
+            <Button
+              onClick={handleOpenFeedback}
+              className="w-full sm:w-auto bg-primary hover:bg-primary/90"
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Give Feedback
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
