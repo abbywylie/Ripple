@@ -27,6 +27,9 @@ import { networkingTips } from "@/data/networking-tips";
 import { ContextualHelp } from "@/components/ContextualHelp";
 import { DontKnowWhereToStart } from "@/components/DontKnowWhereToStart";
 import { ProgressChecklist } from "@/components/ProgressChecklist";
+import { SmartTipsCarousel } from "@/components/SmartTipsCarousel";
+import { FeatureLockedOverlay } from "@/components/FeatureLockedOverlay";
+import { useFeatureUnlock } from "@/hooks/useFeatureUnlock";
 
 // Helper function to parse date strings as local dates to avoid timezone issues
 const parseLocalDate = (dateString: string): Date | null => {
@@ -47,6 +50,7 @@ const parseLocalDate = (dateString: string): Date | null => {
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { experienceLevel, features } = useFeatureUnlock();
   const [contacts, setContacts] = useState([]);
   const [goals, setGoals] = useState([]);
   const [completionRate, setCompletionRate] = useState(0);
@@ -462,32 +466,48 @@ const Dashboard = () => {
                 <Target className="h-4 w-4 mr-2" />
                 <span>Quick Add Goal</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/progress')} className="cursor-pointer">
-                <TrendingUp className="h-4 w-4 mr-2" />
-                <span>View Progress</span>
-              </DropdownMenuItem>
+              {features.fullAnalytics ? (
+                <DropdownMenuItem onClick={() => navigate('/progress')} className="cursor-pointer">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  <span>View Progress</span>
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem disabled className="opacity-50">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  <span>View Progress (Unlock with Advanced)</span>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <Card key={index} className="glass-card border-border/50 hover:border-primary/50 transition-all">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <stat.icon className={`h-8 w-8 ${stat.color}`} />
-              </div>
-              <div className="text-3xl font-bold mb-1">{stat.value}</div>
-              <div className="text-sm text-muted-foreground">{stat.title}</div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Stats Grid - Show fewer stats for beginners */}
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${experienceLevel === 'beginner' ? 'lg:grid-cols-2' : 'lg:grid-cols-4'} gap-6`}>
+        {stats.map((stat, index) => {
+          // For beginners, only show first 2 stats (Total Contacts and Active Goals)
+          if (experienceLevel === 'beginner' && index >= 2) {
+            return null;
+          }
+          return (
+            <Card key={index} className="glass-card border-border/50 hover:border-primary/50 transition-all">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <stat.icon className={`h-8 w-8 ${stat.color}`} />
+                </div>
+                <div className="text-3xl font-bold mb-1">{stat.value}</div>
+                <div className="text-sm text-muted-foreground">{stat.title}</div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Contextual Help */}
       <ContextualHelp />
+
+      {/* Smart Tips Carousel for Intermediate Users */}
+      <SmartTipsCarousel />
 
       {/* Progress Checklist for Level Unlocking */}
       {user?.experience_level && user.experience_level !== 'advanced' && (
@@ -660,9 +680,11 @@ const Dashboard = () => {
                 <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
                   Recent Activity
                 </TabsTrigger>
-                <TabsTrigger value="tips" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
-                  Networking Tips
-                </TabsTrigger>
+                {experienceLevel !== 'beginner' && (
+                  <TabsTrigger value="tips" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                    Networking Tips
+                  </TabsTrigger>
+                )}
               </TabsList>
               
               <TabsContent value="activity" className="p-6 space-y-4 mt-0">
@@ -693,38 +715,40 @@ const Dashboard = () => {
                 )}
               </TabsContent>
               
-              <TabsContent value="tips" className="p-6 mt-0 max-h-96 overflow-y-auto">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                    <BookOpen className="h-4 w-4" />
-                    <span>Curated networking resources from top business schools</span>
-                  </div>
-                  {networkingTips.map((tip, index) => (
-                    <div 
-                      key={index} 
-                      className="border rounded-lg p-4 hover:border-primary/50 hover:bg-muted/50 transition-all group"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm mb-1 group-hover:text-primary transition-colors">
-                            {tip.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{tip.source}</p>
-                        </div>
-                        <a
-                          href={tip.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-shrink-0 text-primary hover:text-primary/80 transition-colors"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </div>
+              {experienceLevel !== 'beginner' && (
+                <TabsContent value="tips" className="p-6 mt-0 max-h-96 overflow-y-auto">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                      <BookOpen className="h-4 w-4" />
+                      <span>Curated networking resources from top business schools</span>
                     </div>
-                  ))}
-                </div>
-              </TabsContent>
+                    {networkingTips.map((tip, index) => (
+                      <div 
+                        key={index} 
+                        className="border rounded-lg p-4 hover:border-primary/50 hover:bg-muted/50 transition-all group"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm mb-1 group-hover:text-primary transition-colors">
+                              {tip.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{tip.source}</p>
+                          </div>
+                          <a
+                            href={tip.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-shrink-0 text-primary hover:text-primary/80 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+              )}
             </Tabs>
           </CardContent>
         </Card>

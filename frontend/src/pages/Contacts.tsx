@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { contactsApi, interactionsApi } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { GmailPluginDemo } from "@/components/GmailPluginDemo";
 
 // Helper function to parse date strings as local dates to avoid timezone issues
 const parseLocalDate = (dateString: string): Date | null => {
@@ -470,8 +471,8 @@ const Contacts = () => {
     <div className="p-8 space-y-8 animate-fade-in">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-bold mb-2">Contacts</h1>
-          <p className="text-muted-foreground">Manage your professional network</p>
+          <h1 className="text-4xl font-bold mb-2">Contacts and Emails</h1>
+          <p className="text-muted-foreground">Manage your professional network and email interactions</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -874,6 +875,9 @@ const Contacts = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Gmail Plugin Demo - Show for beginners */}
+      <GmailPluginDemo />
 
       {/* Search and Filter */}
       <div className="flex gap-4">

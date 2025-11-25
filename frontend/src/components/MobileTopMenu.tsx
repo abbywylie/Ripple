@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
-  { title: "Contacts", url: "/contacts", icon: Users },
+  { title: "Contacts and Emails", url: "/contacts", icon: Users },
   { title: "Meetings", url: "/meetings", icon: Calendar },
   { title: "Goals", url: "/goals", icon: Target },
   { title: "Reminders", url: "/reminders", icon: Bell },

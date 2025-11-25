@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ChevronRight, ChevronLeft, Target, FileText, Bell, TrendingUp, Sparkles, X } from "lucide-react";
+import { ChevronRight, ChevronLeft, Target, FileText, Bell, TrendingUp, Sparkles, X, Calendar, BarChart3, Mail, Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { authApi } from "@/lib/api";
 import { toast } from "sonner";
@@ -100,27 +100,134 @@ const STEPS = [
   },
   {
     id: 4,
-    title: "Your Dashboard",
+    title: "Calendar Sync & Reminders",
     content: (
       <div className="space-y-4">
         <div className="bg-muted rounded-lg p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold">Track Your Progress</h3>
+            <Calendar className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Sync Your Calendar</h3>
           </div>
           <p className="text-sm text-muted-foreground">
-            Your dashboard shows everything you need at a glance:
+            Connect your calendar to automatically:
           </p>
           <ul className="text-sm space-y-1 text-muted-foreground list-disc list-inside">
-            <li>Active goals and progress tracking</li>
-            <li>Upcoming reminders and follow-ups</li>
-            <li>Recent contacts and interactions</li>
-            <li>Quick actions to add contacts or log meetings</li>
+            <li>Import meetings and events</li>
+            <li>Set automatic follow-up reminders</li>
+            <li>Track meeting frequency with contacts</li>
+            <li>Never miss an important follow-up</li>
           </ul>
         </div>
         <div className="bg-primary/10 rounded-lg p-3">
           <p className="text-xs text-muted-foreground">
-            💡 <strong>Pro tip:</strong> Use the search and filter features to quickly find specific contacts or goals.
+            💡 <strong>Tip:</strong> Calendar sync helps you maintain consistent touchpoints with your network.
+          </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 5,
+    title: "Goal Statistics & Trends",
+    content: (
+      <div className="space-y-4">
+        <div className="bg-muted rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Track Your Progress</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            View detailed statistics and trends:
+          </p>
+          <ul className="text-sm space-y-1 text-muted-foreground list-disc list-inside">
+            <li>Goal completion rates over time</li>
+            <li>Networking activity trends</li>
+            <li>Contact growth metrics</li>
+            <li>Follow-up consistency scores</li>
+          </ul>
+        </div>
+        <div className="bg-primary/10 rounded-lg p-3">
+          <p className="text-xs text-muted-foreground">
+            💡 <strong>Tip:</strong> Use statistics to identify what's working and adjust your strategy.
+          </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 6,
+    title: "Template Customization",
+    content: (
+      <div className="space-y-4">
+        <div className="bg-muted rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Customize Templates</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Make templates your own:
+          </p>
+          <ul className="text-sm space-y-1 text-muted-foreground list-disc list-inside">
+            <li>Edit pre-written templates to match your voice</li>
+            <li>Create custom templates for specific situations</li>
+            <li>Save frequently used templates for quick access</li>
+            <li>Use variables to personalize messages</li>
+          </ul>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 7,
+    title: "Plugin Integration",
+    content: (
+      <div className="space-y-4">
+        <div className="bg-muted rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Gmail Plugin</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Automate your networking workflow:
+          </p>
+          <ul className="text-sm space-y-1 text-muted-foreground list-disc list-inside">
+            <li>Auto-log emails as interactions</li>
+            <li>Extract contact information automatically</li>
+            <li>Set follow-up reminders from emails</li>
+            <li>Track relationship health based on email frequency</li>
+          </ul>
+        </div>
+        <div className="bg-primary/10 rounded-lg p-3">
+          <p className="text-xs text-muted-foreground">
+            💡 <strong>Tip:</strong> The plugin saves time by eliminating manual data entry.
+          </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 8,
+    title: "Relationship Health Tracking",
+    content: (
+      <div className="space-y-4">
+        <div className="bg-muted rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Heart className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Monitor Relationship Health</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Keep track of your relationships:
+          </p>
+          <ul className="text-sm space-y-1 text-muted-foreground list-disc list-inside">
+            <li>See which relationships need attention</li>
+            <li>Track interaction frequency</li>
+            <li>Identify contacts you haven't reached out to recently</li>
+            <li>Get suggestions for re-engaging</li>
+          </ul>
+        </div>
+        <div className="bg-primary/10 rounded-lg p-3">
+          <p className="text-xs text-muted-foreground">
+            💡 <strong>Tip:</strong> Healthy relationships require consistent communication.
           </p>
         </div>
       </div>
