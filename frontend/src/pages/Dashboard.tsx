@@ -419,6 +419,9 @@ const Dashboard = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {user?.experience_level === 'beginner' && (
+            <DontKnowWhereToStart />
+          )}
           <Button 
             variant="outline" 
             onClick={handleOpenFeedback}
@@ -485,11 +488,6 @@ const Dashboard = () => {
 
       {/* Contextual Help */}
       <ContextualHelp />
-
-      {/* Don't Know Where to Start Button */}
-      {user?.experience_level === 'beginner' && (
-        <DontKnowWhereToStart />
-      )}
 
       {/* Progress Checklist for Level Unlocking */}
       {user?.experience_level && user.experience_level !== 'advanced' && (

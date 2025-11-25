@@ -23,10 +23,11 @@ export const DontKnowWhereToStart = () => {
       <Button
         variant="outline"
         onClick={handleOpen}
-        className="w-full border-dashed border-2 border-primary/30 hover:border-primary/50 hover:bg-primary/5"
+        className="flex items-center gap-2 border-primary/30 hover:border-primary/50 hover:bg-primary/5"
       >
-        <HelpCircle className="h-4 w-4 mr-2" />
-        Don't Know Where to Start?
+        <HelpCircle className="h-4 w-4" />
+        <span className="hidden sm:inline">Don't Know Where to Start?</span>
+        <span className="sm:hidden">Help</span>
       </Button>
 
       {showLevelSelection && (
