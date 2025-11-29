@@ -42,9 +42,9 @@ const Discover = () => {
   const [loading, setLoading] = useState(true);
   const [loadingRecommendations, setLoadingRecommendations] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [industryFilter, setIndustryFilter] = useState<string>("");
-  const [schoolFilter, setSchoolFilter] = useState<string>("");
-  const [roleFilter, setRoleFilter] = useState<string>("");
+  const [industryFilter, setIndustryFilter] = useState<string>("all");
+  const [schoolFilter, setSchoolFilter] = useState<string>("all");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
   const [selectedProfile, setSelectedProfile] = useState<PublicProfile | null>(null);
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [messageContent, setMessageContent] = useState("");
@@ -86,9 +86,9 @@ const Discover = () => {
     try {
       setLoading(true);
       const params: any = {};
-      if (industryFilter) params.industry = industryFilter;
-      if (schoolFilter) params.school = schoolFilter;
-      if (roleFilter) params.role = roleFilter;
+      if (industryFilter && industryFilter !== "all") params.industry = industryFilter;
+      if (schoolFilter && schoolFilter !== "all") params.school = schoolFilter;
+      if (roleFilter && roleFilter !== "all") params.role = roleFilter;
       
       console.log("Loading profiles with params:", params);
       const data = await publicProfilesApi.getAll(params);
@@ -466,7 +466,7 @@ const Discover = () => {
                       <SelectValue placeholder="All industries" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All industries</SelectItem>
+                      <SelectItem value="all">All industries</SelectItem>
                       {uniqueIndustries.map((industry) => (
                         <SelectItem key={industry} value={industry}>
                           {industry}
@@ -482,7 +482,7 @@ const Discover = () => {
                       <SelectValue placeholder="All schools" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All schools</SelectItem>
+                      <SelectItem value="all">All schools</SelectItem>
                       {uniqueSchools.map((school) => (
                         <SelectItem key={school} value={school}>
                           {school}
@@ -498,7 +498,7 @@ const Discover = () => {
                       <SelectValue placeholder="All roles" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All roles</SelectItem>
+                      <SelectItem value="all">All roles</SelectItem>
                       {uniqueRoles.map((role) => (
                         <SelectItem key={role} value={role}>
                           {role}
@@ -508,13 +508,13 @@ const Discover = () => {
                   </Select>
                 </div>
               </div>
-              {(industryFilter || schoolFilter || roleFilter) && (
+              {(industryFilter !== "all" || schoolFilter !== "all" || roleFilter !== "all") && (
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setIndustryFilter("");
-                    setSchoolFilter("");
-                    setRoleFilter("");
+                    setIndustryFilter("all");
+                    setSchoolFilter("all");
+                    setRoleFilter("all");
                     loadProfiles();
                   }}
                   className="w-full"
