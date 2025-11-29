@@ -31,6 +31,7 @@ class User(Base):
     role: Mapped[Optional[str]] = mapped_column(String(200))
     experience_level: Mapped[Optional[str]] = mapped_column(String(50))  # 'beginner', 'intermediate', 'experienced'
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_public_profile: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_date_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     # relationships
@@ -39,6 +40,7 @@ class User(Base):
     goals: Mapped[list["Goal"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     interactions: Mapped[list["Interaction"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     calendar_integrations: Mapped[list["CalendarIntegration"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    public_profile: Mapped[Optional["PublicProfile"]] = relationship(back_populates="user", cascade="all, delete-orphan", uselist=False)
 
 
 class Contact(Base):
@@ -190,6 +192,27 @@ class SyncedEvent(Base):
     
     # relationships
     integration: Mapped["CalendarIntegration"] = relationship(back_populates="synced_events")
+
+
+class PublicProfile(Base):
+    __tablename__ = "public_profiles"
+
+    profile_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), unique=True, nullable=False)
+    
+    display_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    school: Mapped[Optional[str]] = mapped_column(String(200))
+    role: Mapped[Optional[str]] = mapped_column(String(200))
+    industry_tags: Mapped[Optional[str]] = mapped_column(Text)  # Comma-separated string
+    contact_method: Mapped[Optional[str]] = mapped_column(String(50))  # 'email' or 'linkedin'
+    contact_info: Mapped[Optional[str]] = mapped_column(String(500))  # Email address or LinkedIn URL
+    visibility: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # relationships
+    user: Mapped["User"] = relationship(back_populates="public_profile")
 
 
 # ----- Engine / DB init -----
@@ -892,6 +915,118 @@ def get_upcoming_follow_ups(user_id: int, days_ahead: int = 7) -> list[Contact]:
             .where(Contact.date_next_follow_up <= upcoming)
         ).scalars().all()
         return list(results)
+
+
+# ---------- PUBLIC PROFILES ----------
+def create_or_update_public_profile(
+    *,
+    user_id: int,
+    display_name: str,
+    school: Optional[str] = None,
+    role: Optional[str] = None,
+    industry_tags: Optional[str] = None,  # Comma-separated string
+    contact_method: Optional[str] = None,
+    contact_info: Optional[str] = None,
+    visibility: bool = True,
+) -> PublicProfile:
+    """Create or update a public profile for a user."""
+    with get_session() as s:
+        if not s.get(User, user_id):
+            raise NotFoundError(f"user {user_id} not found")
+        
+        # Check if profile already exists
+        existing = s.execute(select(PublicProfile).where(PublicProfile.user_id == user_id)).scalar_one_or_none()
+        
+        if existing:
+            # Update existing profile
+            existing.display_name = display_name
+            existing.school = school
+            existing.role = role
+            existing.industry_tags = industry_tags
+            existing.contact_method = contact_method
+            existing.contact_info = contact_info
+            existing.visibility = visibility
+            existing.updated_at = datetime.utcnow()
+            
+            # Update user's has_public_profile flag
+            user = s.get(User, user_id)
+            if user:
+                user.has_public_profile = visibility
+            
+            s.flush()
+            s.refresh(existing)
+            return existing
+        else:
+            # Create new profile
+            profile = PublicProfile(
+                user_id=user_id,
+                display_name=display_name,
+                school=school,
+                role=role,
+                industry_tags=industry_tags,
+                contact_method=contact_method,
+                contact_info=contact_info,
+                visibility=visibility,
+            )
+            s.add(profile)
+            
+            # Update user's has_public_profile flag
+            user = s.get(User, user_id)
+            if user:
+                user.has_public_profile = visibility
+            
+            s.flush()
+            s.refresh(profile)
+            return profile
+
+
+def get_public_profiles(
+    *,
+    industry: Optional[str] = None,
+    school: Optional[str] = None,
+    role: Optional[str] = None,
+    visibility: bool = True,
+) -> list[PublicProfile]:
+    """Get all visible public profiles with optional filters."""
+    with get_session() as s:
+        query = select(PublicProfile).where(PublicProfile.visibility == visibility)
+        
+        if industry:
+            # Search in industry_tags (comma-separated string)
+            query = query.where(PublicProfile.industry_tags.ilike(f"%{industry}%"))
+        
+        if school:
+            query = query.where(PublicProfile.school.ilike(f"%{school}%"))
+        
+        if role:
+            query = query.where(PublicProfile.role.ilike(f"%{role}%"))
+        
+        results = s.execute(query.order_by(PublicProfile.created_at.desc())).scalars().all()
+        return list(results)
+
+
+def get_public_profile_by_user_id(user_id: int) -> Optional[PublicProfile]:
+    """Get a public profile by user_id."""
+    with get_session() as s:
+        return s.execute(select(PublicProfile).where(PublicProfile.user_id == user_id)).scalar_one_or_none()
+
+
+def delete_public_profile(*, user_id: int) -> bool:
+    """Hide/delete a public profile."""
+    with get_session() as s:
+        profile = s.execute(select(PublicProfile).where(PublicProfile.user_id == user_id)).scalar_one_or_none()
+        
+        if not profile:
+            raise NotFoundError(f"public profile for user {user_id} not found")
+        
+        # Update user's has_public_profile flag
+        user = s.get(User, user_id)
+        if user:
+            user.has_public_profile = False
+        
+        s.delete(profile)
+        s.flush()
+        return True
 
 
 # ----- Tiny smoke test (optional) -----
