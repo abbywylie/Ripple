@@ -8,7 +8,8 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
-import { LogOut, Mail, User, BookOpen, Moon, Zap, Battery, Edit, Save, X, Briefcase, GraduationCap } from 'lucide-react';
+import { LogOut, Mail, User, BookOpen, Moon, Zap, Battery, Edit, Save, X, Briefcase, GraduationCap, TrendingUp, Sparkles } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link } from 'react-router-dom';
 import { resetTour } from '@/components/OnboardingTour';
 import { toast } from 'sonner';
@@ -22,6 +23,7 @@ const ProfilePage = () => {
   const [editedCompanyOrSchool, setEditedCompanyOrSchool] = useState('');
   const [editedRole, setEditedRole] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isChangingExperienceLevel, setIsChangingExperienceLevel] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -70,6 +72,35 @@ const ProfilePage = () => {
     setEditedCompanyOrSchool(user.company_or_school || '');
     setEditedRole(user.role || '');
     setIsEditing(false);
+  };
+
+  const handleExperienceLevelChange = async (newLevel: string) => {
+    setIsChangingExperienceLevel(true);
+    try {
+      await authApi.updateProfile({ experience_level: newLevel });
+      toast.success('Experience level updated! The page will refresh to apply changes.');
+      // Reload to update the user context and show new features
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || 'Failed to update experience level');
+    } finally {
+      setIsChangingExperienceLevel(false);
+    }
+  };
+
+  const getExperienceLevelLabel = (level: string | undefined) => {
+    switch (level) {
+      case 'beginner':
+        return 'I\'m new to networking';
+      case 'intermediate':
+        return 'I know the basics';
+      case 'advanced':
+        return 'I\'m a confident networker';
+      default:
+        return 'Not set';
+    }
   };
 
   return (
@@ -213,6 +244,66 @@ const ProfilePage = () => {
                 </div>
               </>
             )}
+            <Separator className="my-6" />
+            
+            {/* Experience Level */}
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Networking Experience Level</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  This helps us personalize your experience with the right features and guidance.
+                </p>
+              </div>
+              <div className="p-4 bg-muted rounded-lg space-y-3">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="h-5 w-5 text-muted-foreground" />
+                  <div className="flex-1">
+                    <Label htmlFor="experience-level" className="font-medium">
+                      Current Level
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      {getExperienceLevelLabel(user.experience_level)}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="experience-level-select">Change Experience Level</Label>
+                  <Select
+                    value={user.experience_level || ''}
+                    onValueChange={handleExperienceLevelChange}
+                    disabled={isChangingExperienceLevel}
+                  >
+                    <SelectTrigger id="experience-level-select">
+                      <SelectValue placeholder="Select experience level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="beginner">
+                        <div className="flex items-center gap-2">
+                          <GraduationCap className="h-4 w-4" />
+                          <span>I'm new to networking</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="intermediate">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="h-4 w-4" />
+                          <span>I know the basics</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="advanced">
+                        <div className="flex items-center gap-2">
+                          <Zap className="h-4 w-4" />
+                          <span>I'm a confident networker</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Changing your level will update the features and guidance you see throughout the app.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <Separator className="my-6" />
             
             {/* UI Settings */}

@@ -26,8 +26,8 @@ export const DynamicOnboarding = () => {
 
     // Small delay to ensure page is fully loaded
     const timer = setTimeout(() => {
-      // If user hasn't completed onboarding and doesn't have experience level
-      if (!user.onboarding_completed && !user.experience_level) {
+      // If user doesn't have experience level, show selection (regardless of onboarding status)
+      if (!user.experience_level) {
         setShowExperienceSelection(true);
       }
       // If user has experience level but hasn't completed onboarding
@@ -46,6 +46,11 @@ export const DynamicOnboarding = () => {
     setShowOnboarding(true);
   };
 
+  const handleExperienceSelectionClose = () => {
+    // Allow closing the dialog - it will reappear on next protected route visit if still no experience level
+    setShowExperienceSelection(false);
+  };
+
   const handleOnboardingComplete = async () => {
     setShowOnboarding(false);
     // Refresh user data to get updated onboarding_completed status
@@ -59,7 +64,7 @@ export const DynamicOnboarding = () => {
   };
 
   if (showExperienceSelection) {
-    return <ExperienceLevelSelection open={true} onComplete={handleExperienceSelected} />;
+    return <ExperienceLevelSelection open={true} onComplete={handleExperienceSelected} onClose={handleExperienceSelectionClose} />;
   }
 
   if (showOnboarding && experienceLevel) {
