@@ -54,33 +54,33 @@ const Discover = () => {
   useEffect(() => {
     if (user?.userId) {
       loadRecommendations();
-      // Only load profiles if we're on browse tab or if we haven't loaded yet
-      if (activeTab === "browse" || profiles.length === 0) {
-        loadProfiles();
-      }
+      // Always load profiles on mount - they're needed for both tabs
+      loadProfiles();
     } else {
       setLoading(false);
       setLoadingRecommendations(false);
     }
   }, [user?.userId]);
 
-  // Reload profiles when switching to browse tab
+  // Reload profiles when switching to browse tab (in case filters changed)
   useEffect(() => {
-    if (activeTab === "browse" && user?.userId && profiles.length === 0) {
-      loadProfiles();
+    if (activeTab === "browse" && user?.userId) {
+      // Reload if filters are active
+      if (industryFilter || schoolFilter || roleFilter) {
+        loadProfiles();
+      }
     }
-  }, [activeTab]);
+  }, [activeTab, industryFilter, schoolFilter, roleFilter]);
 
   useEffect(() => {
-    if (profiles.length > 0 || !loading) {
-      filterProfiles();
-    }
-  }, [profiles, searchQuery, industryFilter, schoolFilter, roleFilter, loading]);
+    // Always filter profiles when they change or filters change
+    filterProfiles();
+  }, [profiles, searchQuery, industryFilter, schoolFilter, roleFilter]);
 
   const loadProfiles = async () => {
-    // Only load profiles if we're on the browse tab or if we haven't loaded yet
-    if (activeTab === "recommended" && profiles.length > 0) {
-      return; // Don't reload if we're on recommended tab and already have profiles
+    if (!user?.userId) {
+      setLoading(false);
+      return;
     }
 
     try {
@@ -90,14 +90,19 @@ const Discover = () => {
       if (schoolFilter) params.school = schoolFilter;
       if (roleFilter) params.role = roleFilter;
       
+      console.log("Loading profiles with params:", params);
       const data = await publicProfilesApi.getAll(params);
+      console.log("Profiles loaded:", data);
+      
       if (Array.isArray(data)) {
         // Filter out current user's profile
         const filtered = data.filter((p: PublicProfile) => p.user_id !== user?.userId);
+        console.log("Filtered profiles (excluding current user):", filtered);
         setProfiles(filtered);
         // Immediately set filtered profiles to show results
         setFilteredProfiles(filtered);
       } else {
+        console.log("No profiles data or not an array:", data);
         setProfiles([]);
         setFilteredProfiles([]);
       }
@@ -523,9 +528,12 @@ const Discover = () => {
 
           {/* Results */}
           {loading ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">Loading profiles...</p>
-            </div>
+            <Card>
+              <CardContent className="py-12 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading profiles...</p>
+              </CardContent>
+            </Card>
           ) : (!filteredProfiles || filteredProfiles.length === 0) ? (
             <Card>
               <CardContent className="py-12 text-center">
@@ -539,6 +547,15 @@ const Discover = () => {
                   <p className="text-sm text-muted-foreground">
                     Users need to create a public profile to appear here. Check back soon!
                   </p>
+                )}
+                {searchQuery && (
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={() => setSearchQuery("")}
+                  >
+                    Clear Search
+                  </Button>
                 )}
               </CardContent>
             </Card>
