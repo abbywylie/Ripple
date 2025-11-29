@@ -62,8 +62,10 @@ const Discover = () => {
   }, [user?.userId]);
 
   useEffect(() => {
-    filterProfiles();
-  }, [profiles, searchQuery, industryFilter, schoolFilter, roleFilter]);
+    if (profiles.length > 0 || !loading) {
+      filterProfiles();
+    }
+  }, [profiles, searchQuery, industryFilter, schoolFilter, roleFilter, loading]);
 
   const loadProfiles = async () => {
     try {
@@ -78,12 +80,16 @@ const Discover = () => {
         // Filter out current user's profile
         const filtered = data.filter((p: PublicProfile) => p.user_id !== user?.userId);
         setProfiles(filtered);
+        // Immediately set filtered profiles to show results
+        setFilteredProfiles(filtered);
       } else {
         setProfiles([]);
+        setFilteredProfiles([]);
       }
     } catch (error: any) {
       console.error("Failed to load profiles:", error);
       setProfiles([]);
+      setFilteredProfiles([]);
       toast.error("Failed to load profiles");
     } finally {
       setLoading(false);
@@ -124,6 +130,11 @@ const Discover = () => {
   };
 
   const filterProfiles = () => {
+    if (!profiles || !Array.isArray(profiles)) {
+      setFilteredProfiles([]);
+      return;
+    }
+
     let filtered = [...profiles];
 
     // Search filter
@@ -131,10 +142,10 @@ const Discover = () => {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (profile) =>
-          profile.display_name.toLowerCase().includes(query) ||
+          profile.display_name?.toLowerCase().includes(query) ||
           profile.school?.toLowerCase().includes(query) ||
           profile.role?.toLowerCase().includes(query) ||
-          profile.industry_tags.some((tag) => tag.toLowerCase().includes(query))
+          (Array.isArray(profile.industry_tags) && profile.industry_tags.some((tag) => tag?.toLowerCase().includes(query)))
       );
     }
 
@@ -472,15 +483,20 @@ const Discover = () => {
             <div className="text-center py-12">
               <p className="text-muted-foreground">Loading profiles...</p>
             </div>
-          ) : filteredProfiles.length === 0 ? (
+          ) : (!filteredProfiles || filteredProfiles.length === 0) ? (
             <Card>
               <CardContent className="py-12 text-center">
                 <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">
-                  {profiles.length === 0
+                <p className="text-muted-foreground mb-2">
+                  {!profiles || profiles.length === 0
                     ? "No public profiles found. Be the first to create one!"
                     : "No profiles match your filters. Try adjusting your search."}
                 </p>
+                {(!profiles || profiles.length === 0) && (
+                  <p className="text-sm text-muted-foreground">
+                    Users need to create a public profile to appear here. Check back soon!
+                  </p>
+                )}
               </CardContent>
             </Card>
           ) : (
