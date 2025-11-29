@@ -15,7 +15,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from services.service_api import create_user, update_user_service, create_contact, update_contact_service, delete_contact_service, create_meeting, update_meeting_service, delete_meeting_service, get_upcoming_meetings_service, get_meetings_for_date_service, get_user_by_email, list_contacts_for_user, list_meetings_for_contact, list_meetings_for_user, get_upcoming_follow_ups_for_user, get_goals_for_user, create_goal, update_goal_service, delete_goal_service, get_goal_steps, create_goal_step, update_goal_step_service, delete_goal_step_service, get_interactions_for_contact, get_interactions_for_user, create_interaction, update_interaction_service, delete_interaction_service, get_overdue_follow_ups_for_user, get_upcoming_follow_ups_interactions_for_user, get_platform_stats
+from services.service_api import create_user, update_user_service, create_contact, update_contact_service, delete_contact_service, create_meeting, update_meeting_service, delete_meeting_service, get_upcoming_meetings_service, get_meetings_for_date_service, get_user_by_email, list_contacts_for_user, list_meetings_for_contact, list_meetings_for_user, get_upcoming_follow_ups_for_user, get_goals_for_user, create_goal, update_goal_service, delete_goal_service, get_goal_steps, create_goal_step, update_goal_step_service, delete_goal_step_service, get_interactions_for_contact, get_interactions_for_user, create_interaction, update_interaction_service, delete_interaction_service, get_overdue_follow_ups_for_user, get_upcoming_follow_ups_interactions_for_user, get_platform_stats, create_or_update_public_profile_service, get_public_profiles_service, get_public_profile_by_user_id_service, delete_public_profile_service
 from services.email_parser import parse_email_thread, suggest_actions, generate_interaction_tag
 from services.rag_service import answer_rag_question
 from models.database_functions import AlreadyExistsError, NotFoundError, get_session, User
@@ -223,6 +223,16 @@ class EmailLogRequest(BaseModel):
 class RAGQueryRequest(BaseModel):
     query: str
     user_id: Optional[int] = None
+
+
+class PublicProfileCreate(BaseModel):
+    display_name: str
+    school: Optional[str] = None
+    role: Optional[str] = None
+    industry_tags: Optional[List[str]] = None
+    contact_method: Optional[str] = None  # 'email' or 'linkedin'
+    contact_info: Optional[str] = None
+    visibility: bool = True
 
 
 @app.post("/users", response_model=dict)
@@ -671,6 +681,88 @@ def migrate_add_user_fields():
             "error": str(e),
             "traceback": traceback.format_exc()
         }
+
+
+# ---------- PUBLIC PROFILES ENDPOINTS ----------
+@app.post("/public-profiles", response_model=dict)
+def create_or_update_public_profile_endpoint(payload: PublicProfileCreate, token: str = Depends(oauth2_scheme)):
+    """Create or update a public profile. Requires authentication."""
+    try:
+        jwt_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = jwt_payload["user_id"]
+        
+        profile_data = create_or_update_public_profile_service(
+            user_id=user_id,
+            display_name=payload.display_name,
+            school=payload.school,
+            role=payload.role,
+            industry_tags=payload.industry_tags,
+            contact_method=payload.contact_method,
+            contact_info=payload.contact_info,
+            visibility=payload.visibility,
+        )
+        return profile_data
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create/update public profile: {str(e)}")
+
+
+@app.get("/public-profiles", response_model=List[dict])
+def get_public_profiles_endpoint(
+    industry: Optional[str] = None,
+    school: Optional[str] = None,
+    role: Optional[str] = None,
+):
+    """Get all visible public profiles with optional filters. Public endpoint."""
+    try:
+        profiles = get_public_profiles_service(
+            industry=industry,
+            school=school,
+            role=role,
+        )
+        return profiles
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get public profiles: {str(e)}")
+
+
+@app.get("/public-profiles/{user_id}", response_model=dict)
+def get_public_profile_by_user_id_endpoint(user_id: int):
+    """Get a specific public profile by user_id. Public endpoint."""
+    try:
+        profile = get_public_profile_by_user_id_service(user_id)
+        if not profile:
+            raise HTTPException(status_code=404, detail="Public profile not found")
+        return profile
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get public profile: {str(e)}")
+
+
+@app.delete("/public-profiles/{user_id}", response_model=dict)
+def delete_public_profile_endpoint(user_id: int, token: str = Depends(oauth2_scheme)):
+    """Delete/hide a public profile. Users can only delete their own profile."""
+    try:
+        jwt_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        authenticated_user_id = jwt_payload["user_id"]
+        
+        # Ensure users can only delete their own profile
+        if authenticated_user_id != user_id:
+            raise HTTPException(status_code=403, detail="You can only delete your own public profile")
+        
+        result = delete_public_profile_service(user_id=user_id)
+        return result
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete public profile: {str(e)}")
 
 
 # Serve the built frontend (the Vite build output) - MUST be after all API routes

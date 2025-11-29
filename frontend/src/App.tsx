@@ -15,6 +15,7 @@ import ProfilePage from "./pages/ProfilePage";
 import Dashboard from "./pages/Dashboard";
 import Contacts from "./pages/Contacts";
 import ContactDetail from "./pages/ContactDetail";
+import Discover from "./pages/Discover";
 import Meetings from "./pages/Meetings";
 import Goals from "./pages/Goals";
 import Reminders from "./pages/Reminders";
@@ -105,6 +106,7 @@ const AppContent = () => {
             <Route path="/dashboard" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
             <Route path="/contacts" element={<ProtectedRoute><AppLayout><Contacts /></AppLayout></ProtectedRoute>} />
             <Route path="/contacts/:contactId" element={<ProtectedRoute><AppLayout><ContactDetail /></AppLayout></ProtectedRoute>} />
+            <Route path="/discover" element={<ProtectedRoute><AppLayout><Discover /></AppLayout></ProtectedRoute>} />
             <Route path="/meetings" element={<ProtectedRoute><AppLayout><Meetings /></AppLayout></ProtectedRoute>} />
             <Route path="/goals" element={<ProtectedRoute><AppLayout><Goals /></AppLayout></ProtectedRoute>} />
             <Route path="/reminders" element={<ProtectedRoute><AppLayout><Reminders /></AppLayout></ProtectedRoute>} />

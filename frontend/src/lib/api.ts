@@ -189,3 +189,31 @@ export const statsApi = {
   },
 };
 
+// Public Profiles API
+export const publicProfilesApi = {
+  createOrUpdate: async (data: {
+    display_name: string;
+    school?: string;
+    role?: string;
+    industry_tags?: string[];
+    contact_method?: string;
+    contact_info?: string;
+    visibility?: boolean;
+  }) => {
+    const response = await apiClient.post('/public-profiles', data);
+    return response.data;
+  },
+  getAll: async (params?: { industry?: string; school?: string; role?: string }) => {
+    const response = await apiClient.get('/public-profiles', { params });
+    return response.data;
+  },
+  getByUserId: async (userId: number) => {
+    const response = await apiClient.get(`/public-profiles/${userId}`);
+    return response.data;
+  },
+  delete: async (userId: number) => {
+    const response = await apiClient.delete(`/public-profiles/${userId}`);
+    return response.data;
+  },
+};
+

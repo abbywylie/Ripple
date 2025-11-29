@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Home, Users, Target, Bell, TrendingUp, User, Calendar } from "lucide-react";
+import { Home, Users, Target, Bell, TrendingUp, User, Calendar, Search } from "lucide-react";
 import rippleLogo from "@/assets/ripple-logo.png";
 import { NavLink, Link } from "react-router-dom";
 import { DailyRipple } from "./DailyRipple";
@@ -17,6 +17,7 @@ import {
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: Home, tourId: "dashboard" },
   { title: "Contacts and Emails", url: "/contacts", icon: Users, tourId: "contacts" },
+  { title: "Discover", url: "/discover", icon: Search, tourId: "discover" },
   { title: "Meetings", url: "/meetings", icon: Calendar, tourId: "meetings" },
   { title: "Goals", url: "/goals", icon: Target, tourId: "goals" },
   { title: "Reminders", url: "/reminders", icon: Bell, tourId: "reminders" },

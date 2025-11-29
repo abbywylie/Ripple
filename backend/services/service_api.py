@@ -35,12 +35,17 @@ from models.database_functions import (
     list_interactions_for_user,
     get_overdue_follow_ups,
     get_upcoming_interaction_follow_ups,
+    create_or_update_public_profile,
+    get_public_profiles,
+    get_public_profile_by_user_id,
+    delete_public_profile,
     User,
     Contact,
     Meeting,
     Goal,
     GoalStep,
     Interaction,
+    PublicProfile,
     SessionLocal,
     select,
     func,
@@ -531,5 +536,78 @@ def get_platform_stats() -> Dict[str, Any]:
             "total_contacts": total_contacts,
             "active_users": active_users,
         }
+
+
+def public_profile_to_dict(profile: PublicProfile) -> Dict[str, Any]:
+    """Convert PublicProfile to dictionary."""
+    return {
+        "profile_id": profile.profile_id,
+        "user_id": profile.user_id,
+        "display_name": profile.display_name,
+        "school": profile.school,
+        "role": profile.role,
+        "industry_tags": profile.industry_tags.split(",") if profile.industry_tags else [],
+        "contact_method": profile.contact_method,
+        "contact_info": profile.contact_info,
+        "visibility": profile.visibility,
+        "created_at": profile.created_at.isoformat() if profile.created_at else None,
+        "updated_at": profile.updated_at.isoformat() if profile.updated_at else None,
+    }
+
+
+def create_or_update_public_profile_service(
+    user_id: int,
+    display_name: str,
+    school: Optional[str] = None,
+    role: Optional[str] = None,
+    industry_tags: Optional[List[str]] = None,
+    contact_method: Optional[str] = None,
+    contact_info: Optional[str] = None,
+    visibility: bool = True,
+) -> Dict[str, Any]:
+    """Create or update a public profile."""
+    # Convert list of tags to comma-separated string
+    industry_tags_str = ",".join(industry_tags) if industry_tags else None
+    
+    profile = create_or_update_public_profile(
+        user_id=user_id,
+        display_name=display_name,
+        school=school,
+        role=role,
+        industry_tags=industry_tags_str,
+        contact_method=contact_method,
+        contact_info=contact_info,
+        visibility=visibility,
+    )
+    return public_profile_to_dict(profile)
+
+
+def get_public_profiles_service(
+    industry: Optional[str] = None,
+    school: Optional[str] = None,
+    role: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Get all visible public profiles with optional filters."""
+    profiles = get_public_profiles(
+        industry=industry,
+        school=school,
+        role=role,
+        visibility=True,
+    )
+    return [public_profile_to_dict(profile) for profile in profiles]
+
+
+def get_public_profile_by_user_id_service(user_id: int) -> Optional[Dict[str, Any]]:
+    """Get a public profile by user_id."""
+    profile = get_public_profile_by_user_id(user_id)
+    if not profile:
+        return None
+    return public_profile_to_dict(profile)
+
+
+def delete_public_profile_service(user_id: int) -> Dict[str, Any]:
+    """Delete/hide a public profile."""
+    success = delete_public_profile(user_id=user_id)
+    return {"success": success, "message": "Public profile deleted successfully"}
 
 
