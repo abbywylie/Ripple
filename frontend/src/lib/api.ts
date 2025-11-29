@@ -217,3 +217,11 @@ export const publicProfilesApi = {
   },
 };
 
+// Recommendations API
+export const recommendationsApi = {
+  getRecommendations: async (params?: { threshold?: number; use_ml?: boolean }) => {
+    const response = await apiClient.get('/api/recommendations', { params });
+    return response.data;
+  },
+};
+

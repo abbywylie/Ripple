@@ -16,6 +16,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from services.service_api import create_user, update_user_service, create_contact, update_contact_service, delete_contact_service, create_meeting, update_meeting_service, delete_meeting_service, get_upcoming_meetings_service, get_meetings_for_date_service, get_user_by_email, list_contacts_for_user, list_meetings_for_contact, list_meetings_for_user, get_upcoming_follow_ups_for_user, get_goals_for_user, create_goal, update_goal_service, delete_goal_service, get_goal_steps, create_goal_step, update_goal_step_service, delete_goal_step_service, get_interactions_for_contact, get_interactions_for_user, create_interaction, update_interaction_service, delete_interaction_service, get_overdue_follow_ups_for_user, get_upcoming_follow_ups_interactions_for_user, get_platform_stats, create_or_update_public_profile_service, get_public_profiles_service, get_public_profile_by_user_id_service, delete_public_profile_service
+from services.recommendation_service import get_recommendations_for_user
 from services.email_parser import parse_email_thread, suggest_actions, generate_interaction_tag
 from services.rag_service import answer_rag_question
 from models.database_functions import AlreadyExistsError, NotFoundError, get_session, User
@@ -763,6 +764,32 @@ def delete_public_profile_endpoint(user_id: int, token: str = Depends(oauth2_sch
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete public profile: {str(e)}")
+
+
+# ---------- RECOMMENDATIONS ENDPOINT ----------
+@app.get("/api/recommendations", response_model=List[dict])
+def get_recommendations_endpoint(
+    threshold: Optional[float] = 0.65,
+    use_ml: bool = True,
+    token: str = Depends(oauth2_scheme)
+):
+    """Get personalized connection recommendations for the authenticated user."""
+    try:
+        jwt_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = jwt_payload["user_id"]
+        
+        recommendations = get_recommendations_for_user(
+            user_id=user_id,
+            threshold=threshold,
+            use_ml=use_ml
+        )
+        return recommendations
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get recommendations: {str(e)}")
 
 
 # Serve the built frontend (the Vite build output) - MUST be after all API routes
