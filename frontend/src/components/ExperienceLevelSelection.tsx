@@ -11,9 +11,10 @@ type ExperienceLevel = "beginner" | "intermediate" | "advanced";
 interface ExperienceLevelSelectionProps {
   open: boolean;
   onComplete: (level: ExperienceLevel) => void;
+  onClose?: () => void;
 }
 
-export const ExperienceLevelSelection = ({ open, onComplete }: ExperienceLevelSelectionProps) => {
+export const ExperienceLevelSelection = ({ open, onComplete, onClose }: ExperienceLevelSelectionProps) => {
   const { user } = useAuth();
   const [selectedLevel, setSelectedLevel] = useState<ExperienceLevel | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -61,16 +62,38 @@ export const ExperienceLevelSelection = ({ open, onComplete }: ExperienceLevelSe
     },
   ];
 
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="max-w-2xl" onPointerDownOutside={(e) => e.preventDefault()}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) {
+        handleClose();
+      }
+    }}>
+      <DialogContent className="max-w-2xl" onPointerDownOutside={(e) => {
+        // Allow closing by clicking outside, but show a message
+        if (onClose) {
+          handleClose();
+        } else {
+          e.preventDefault();
+        }
+      }}>
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="h-6 w-6 text-primary" />
             <DialogTitle className="text-2xl">Welcome to Ripple! 👋</DialogTitle>
           </div>
-          <DialogDescription className="text-base">
-            To personalize your experience, tell us about your networking experience level.
+          <DialogDescription className="text-base space-y-2">
+            <p>
+              To personalize your experience, tell us about your networking experience level.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              This helps us show you the right features, tips, and guidance. Don't worry - you can always change this later in your Profile settings.
+            </p>
           </DialogDescription>
         </DialogHeader>
 

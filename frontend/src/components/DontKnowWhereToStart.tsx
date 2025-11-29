@@ -38,6 +38,7 @@ export const DontKnowWhereToStart = () => {
             // Optionally restart onboarding or show tour
             window.location.reload();
           }}
+          onClose={handleClose}
         />
       )}
     </>
