@@ -53,13 +53,23 @@ const Discover = () => {
 
   useEffect(() => {
     if (user?.userId) {
-      loadProfiles();
       loadRecommendations();
+      // Only load profiles if we're on browse tab or if we haven't loaded yet
+      if (activeTab === "browse" || profiles.length === 0) {
+        loadProfiles();
+      }
     } else {
       setLoading(false);
       setLoadingRecommendations(false);
     }
   }, [user?.userId]);
+
+  // Reload profiles when switching to browse tab
+  useEffect(() => {
+    if (activeTab === "browse" && user?.userId && profiles.length === 0) {
+      loadProfiles();
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     if (profiles.length > 0 || !loading) {
@@ -68,6 +78,11 @@ const Discover = () => {
   }, [profiles, searchQuery, industryFilter, schoolFilter, roleFilter, loading]);
 
   const loadProfiles = async () => {
+    // Only load profiles if we're on the browse tab or if we haven't loaded yet
+    if (activeTab === "recommended" && profiles.length > 0) {
+      return; // Don't reload if we're on recommended tab and already have profiles
+    }
+
     try {
       setLoading(true);
       const params: any = {};
@@ -90,7 +105,10 @@ const Discover = () => {
       console.error("Failed to load profiles:", error);
       setProfiles([]);
       setFilteredProfiles([]);
-      toast.error("Failed to load profiles");
+      // Only show error if we're on the browse tab
+      if (activeTab === "browse") {
+        toast.error("Failed to load profiles");
+      }
     } finally {
       setLoading(false);
     }
@@ -105,17 +123,36 @@ const Discover = () => {
     try {
       setLoadingRecommendations(true);
       const recs = await recommendationsApi.getRecommendations({ threshold: 0.5 });
-      if (Array.isArray(recs)) {
+      
+      if (Array.isArray(recs) && recs.length > 0) {
         setRecommendations(recs);
         
         // Fetch public profile details for recommended users
+        // Silently handle errors - some users might not have public profiles yet
         const profilePromises = recs.map((rec: Recommendation) =>
-          publicProfilesApi.getByUserId(rec.user_id).catch(() => null)
+          publicProfilesApi.getByUserId(rec.user_id)
+            .then((profile) => {
+              if (profile && profile.visibility !== false) {
+                return profile;
+              }
+              return null;
+            })
+            .catch((err) => {
+              // User might not have a public profile yet - that's okay, don't log as error
+              return null;
+            })
         );
+        
         const profileResults = await Promise.all(profilePromises);
-        const validProfiles = profileResults.filter((p): p is PublicProfile => p !== null);
+        const validProfiles = profileResults.filter((p): p is PublicProfile => p !== null && p !== undefined);
         setRecommendationProfiles(validProfiles);
+        
+        // If we have recommendations but no valid profiles, that's okay - just show empty state
       } else {
+        // No recommendations found - this is normal if:
+        // - User doesn't have role/company set
+        // - No other users with public profiles
+        // - No similar users found
         setRecommendations([]);
         setRecommendationProfiles([]);
       }
@@ -123,7 +160,8 @@ const Discover = () => {
       console.error("Failed to load recommendations:", error);
       setRecommendations([]);
       setRecommendationProfiles([]);
-      // Don't show error toast - recommendations are optional
+      // Don't show error toast - recommendations are optional and might fail for various reasons
+      // Common reasons: user doesn't have role/company, no other users, API temporarily unavailable
     } finally {
       setLoadingRecommendations(false);
     }
@@ -345,16 +383,21 @@ const Discover = () => {
             <div className="text-center py-12">
               <p className="text-muted-foreground">Loading recommendations...</p>
             </div>
-          ) : recommendationProfiles.length === 0 ? (
+          ) : (!recommendationProfiles || recommendationProfiles.length === 0) ? (
             <Card>
               <CardContent className="py-12 text-center">
                 <TrendingUp className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground mb-2">
                   No personalized recommendations available yet.
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  Make sure you've added your role and company in your profile, and that other users have created public profiles.
-                </p>
+                <div className="text-sm text-muted-foreground space-y-2 mb-4">
+                  <p>To get recommendations, make sure:</p>
+                  <ul className="list-disc list-inside space-y-1 text-left max-w-md mx-auto">
+                    <li>You've added your role and company in your Profile</li>
+                    <li>Other users have created public profiles</li>
+                    <li>There are users with similar roles/companies</li>
+                  </ul>
+                </div>
                 <Button
                   variant="outline"
                   className="mt-4"
