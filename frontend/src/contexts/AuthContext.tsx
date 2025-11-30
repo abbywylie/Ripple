@@ -91,7 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const register = async (name: string, email: string, password: string, company_or_school?: string, role?: string) => {
+  const register = async (name: string, email: string, password: string, company_or_school?: string, role?: string, makeProfilePublic: boolean = true) => {
     try {
       await authApi.register(name, email, password, company_or_school, role);
       toast({
@@ -99,6 +99,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         description: "Now logging you in...",
       });
       await login(email, password);
+      
+      // Create public profile if user opted in (default is true)
+      if (makeProfilePublic && name && (company_or_school || role)) {
+        try {
+          const { publicProfilesApi } = await import('@/lib/api');
+          await publicProfilesApi.createOrUpdate({
+            display_name: name,
+            school: company_or_school,
+            role: role,
+            visibility: true,
+          });
+        } catch (pubError) {
+          // Don't fail registration if public profile creation fails
+          console.error('Failed to create public profile:', pubError);
+        }
+      }
     } catch (error: any) {
       toast({
         title: "Registration failed",
