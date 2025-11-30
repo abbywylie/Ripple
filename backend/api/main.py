@@ -405,27 +405,24 @@ def update_profile(payload: UserUpdate, token: str = Depends(oauth2_scheme)):
         # Profiles are public by default
         if user_data.get("name") and (user_data.get("company_or_school") or user_data.get("role")):
             try:
-                # Check if public profile exists
-                existing_profile = get_public_profile_by_user_id_service(user_id)
+                # Check if public profile exists (may return None or raise 404)
+                existing_profile = None
+                try:
+                    existing_profile = get_public_profile_by_user_id_service(user_id)
+                except HTTPException as e:
+                    if e.status_code == 404:
+                        existing_profile = None  # No profile exists yet
+                    else:
+                        raise  # Re-raise other HTTP exceptions
                 
-                if existing_profile:
-                    # Update existing profile with latest user info
-                    create_or_update_public_profile_service(
-                        user_id=user_id,
-                        display_name=user_data.get("name", ""),
-                        school=user_data.get("company_or_school"),
-                        role=user_data.get("role"),
-                        visibility=True,  # Keep it public by default
-                    )
-                else:
-                    # Create new public profile
-                    create_or_update_public_profile_service(
-                        user_id=user_id,
-                        display_name=user_data.get("name", ""),
-                        school=user_data.get("company_or_school"),
-                        role=user_data.get("role"),
-                        visibility=True,  # Public by default
-                    )
+                # Create or update public profile (always public by default)
+                create_or_update_public_profile_service(
+                    user_id=user_id,
+                    display_name=user_data.get("name", ""),
+                    school=user_data.get("company_or_school"),
+                    role=user_data.get("role"),
+                    visibility=True,  # Public by default
+                )
             except Exception as pub_error:
                 # Don't fail profile update if public profile creation fails
                 print(f"Note: Could not auto-update public profile: {pub_error}")
