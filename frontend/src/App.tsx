@@ -27,6 +27,7 @@ import { OnboardingTour } from "./components/OnboardingTour";
 import { ReminderIntroModal } from "./components/ReminderIntroModal";
 import { MobileTopMenu } from "./components/MobileTopMenu";
 import { DynamicOnboarding } from "./components/DynamicOnboarding";
+import { PublicProfileConfirmationDialog } from "./components/PublicProfileConfirmationDialog";
 import { SettingsProvider, useSettings } from "./contexts/SettingsContext";
 
 // Helper to get efficient loading setting from localStorage
@@ -72,6 +73,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => (
       <ReminderIntroModal />
       <DynamicOnboarding />
       <OnboardingTour />
+      <PublicProfileConfirmationDialog />
     </div>
   </SidebarProvider>
 );
