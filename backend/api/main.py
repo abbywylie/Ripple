@@ -329,6 +329,34 @@ def login(user: UserLogin):
             db_user = s.execute(select(User).where(User.email == user.email)).scalar_one_or_none()
             if not db_user or not verify_password(user.password, db_user.password_hash):
                 raise HTTPException(status_code=401, detail="Invalid email or password")
+            
+            # Auto-create public profile for existing users if they have name and (company or role)
+            # This migrates existing users to have public profiles by default
+            if db_user.name and (db_user.company_or_school or db_user.role):
+                try:
+                    # Check if public profile exists
+                    existing_profile = None
+                    try:
+                        existing_profile = get_public_profile_by_user_id_service(db_user.user_id)
+                    except HTTPException as e:
+                        if e.status_code == 404:
+                            existing_profile = None
+                        else:
+                            raise
+                    
+                    # Only create if it doesn't exist (don't overwrite user's choice)
+                    if not existing_profile:
+                        create_or_update_public_profile_service(
+                            user_id=db_user.user_id,
+                            display_name=db_user.name,
+                            school=db_user.company_or_school,
+                            role=db_user.role,
+                            visibility=True,  # Public by default
+                        )
+                except Exception as pub_error:
+                    # Don't fail login if public profile creation fails
+                    print(f"Note: Could not auto-create public profile on login: {pub_error}")
+            
             token = create_token(db_user.user_id, db_user.email)
             return {"access_token": token, "token_type": "bearer"}
     except HTTPException:
