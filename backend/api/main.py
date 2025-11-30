@@ -16,10 +16,28 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from services.service_api import create_user, update_user_service, create_contact, update_contact_service, delete_contact_service, create_meeting, update_meeting_service, delete_meeting_service, get_upcoming_meetings_service, get_meetings_for_date_service, get_user_by_email, list_contacts_for_user, list_meetings_for_contact, list_meetings_for_user, get_upcoming_follow_ups_for_user, get_goals_for_user, create_goal, update_goal_service, delete_goal_service, get_goal_steps, create_goal_step, update_goal_step_service, delete_goal_step_service, get_interactions_for_contact, get_interactions_for_user, create_interaction, update_interaction_service, delete_interaction_service, get_overdue_follow_ups_for_user, get_upcoming_follow_ups_interactions_for_user, get_platform_stats, create_or_update_public_profile_service, get_public_profiles_service, get_public_profile_by_user_id_service, delete_public_profile_service
-from services.recommendation_service import get_recommendations_for_user
-from services.email_parser import parse_email_thread, suggest_actions, generate_interaction_tag
-from services.rag_service import answer_rag_question
 from models.database_functions import AlreadyExistsError, NotFoundError, get_session, User
+
+# Import optional services - don't break app if they fail
+try:
+    from services.recommendation_service import get_recommendations_for_user
+except ImportError as e:
+    print(f"Warning: recommendation_service not available: {e}")
+    get_recommendations_for_user = None
+
+try:
+    from services.email_parser import parse_email_thread, suggest_actions, generate_interaction_tag
+except ImportError as e:
+    print(f"Warning: email_parser not available: {e}")
+    parse_email_thread = None
+    suggest_actions = None
+    generate_interaction_tag = None
+
+try:
+    from services.rag_service import answer_rag_question
+except ImportError as e:
+    print(f"Warning: rag_service not available: {e}")
+    answer_rag_question = None
 
 
 app = FastAPI(title="Networking API", version="1.0.0")
@@ -27,8 +45,14 @@ app = FastAPI(title="Networking API", version="1.0.0")
 # Add CORS middleware FIRST to handle preflight requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # More permissive for development
-    allow_credentials=False,  # Disable for now to avoid issues
+    allow_origins=[
+        "https://ripple-rose.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:8080",
+        "http://localhost:3000",
+        "*"  # Fallback for development
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -288,17 +312,34 @@ def register(user: UserRegister):
 
 @app.options("/api/login")
 async def options_login():
-    return {"message": "OK"}
+    return JSONResponse(
+        content={"message": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        }
+    )
 
 @app.post("/api/login", response_model=Token)
 def login(user: UserLogin):
-    with get_session() as s:
-        from sqlalchemy import select
-        db_user = s.execute(select(User).where(User.email == user.email)).scalar_one_or_none()
-        if not db_user or not verify_password(user.password, db_user.password_hash):
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-        token = create_token(db_user.user_id, db_user.email)
-        return {"access_token": token, "token_type": "bearer"}
+    try:
+        with get_session() as s:
+            from sqlalchemy import select
+            db_user = s.execute(select(User).where(User.email == user.email)).scalar_one_or_none()
+            if not db_user or not verify_password(user.password, db_user.password_hash):
+                raise HTTPException(status_code=401, detail="Invalid email or password")
+            token = create_token(db_user.user_id, db_user.email)
+            return {"access_token": token, "token_type": "bearer"}
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 401)
+        raise
+    except Exception as e:
+        # Log the full error for debugging
+        print(f"Login error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
 
 
 @app.get("/api/stats", response_model=dict)
@@ -570,8 +611,10 @@ def parse_email_endpoint(payload: EmailParseRequest):
 def log_email_endpoint(payload: EmailLogRequest):
     """Log a parsed email thread as an interaction."""
     try:
+        if parse_email_thread is None:
+            raise HTTPException(status_code=503, detail="Email parser service not available")
         parsed_data = parse_email_thread(payload.email_text)
-        tag = payload.custom_tag or generate_interaction_tag(parsed_data)
+        tag = payload.custom_tag or (generate_interaction_tag(parsed_data) if generate_interaction_tag else "email")
         
         # Create interaction from parsed email
         interaction_data = {
@@ -600,6 +643,8 @@ def log_email_endpoint(payload: EmailLogRequest):
 def rag_query_endpoint(payload: RAGQueryRequest):
     """Answer networking and recruiting questions using RAG."""
     try:
+        if answer_rag_question is None:
+            raise HTTPException(status_code=503, detail="RAG service not available")
         result = answer_rag_question(payload.query)
         return result
     except Exception as e:
@@ -778,6 +823,8 @@ def get_recommendations_endpoint(
         jwt_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = jwt_payload["user_id"]
         
+        if get_recommendations_for_user is None:
+            raise HTTPException(status_code=503, detail="Recommendation service not available")
         recommendations = get_recommendations_for_user(
             user_id=user_id,
             threshold=threshold,
