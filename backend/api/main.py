@@ -596,9 +596,11 @@ def get_upcoming_interaction_follow_ups_endpoint(user_id: int, days: int = 7):
 @app.post("/api/parse-email", response_model=dict)
 def parse_email_endpoint(payload: EmailParseRequest):
     """Parse an email thread to extract key information."""
+    if parse_email_thread is None:
+        raise HTTPException(status_code=503, detail="Email parser service not available")
     parsed_data = parse_email_thread(payload.email_text)
-    suggestions = suggest_actions(parsed_data)
-    tag = generate_interaction_tag(parsed_data)
+    suggestions = suggest_actions(parsed_data) if suggest_actions else []
+    tag = generate_interaction_tag(parsed_data) if generate_interaction_tag else "email"
     
     return {
         "parsed_data": parsed_data,
