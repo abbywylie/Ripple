@@ -59,6 +59,12 @@ class Contact(Base):
     date_first_meeting: Mapped[Optional[date]] = mapped_column(Date)
     date_next_follow_up: Mapped[Optional[date]] = mapped_column(Date)
     date_created: Mapped[date] = mapped_column(Date, nullable=False)
+    
+    # Relationship tracking fields
+    relationship_stage: Mapped[Optional[str]] = mapped_column(String(100))  # e.g., "Outreach Sent", "Meeting Scheduled"
+    timeline: Mapped[Optional[str]] = mapped_column(Text)  # JSON string of timeline stages
+    gmail_thread_id: Mapped[Optional[str]] = mapped_column(String(500))  # For future Gmail plugin integration
+    last_interaction_date: Mapped[Optional[date]] = mapped_column(Date)  # Last touchpoint date
 
     # relationships
     user: Mapped["User"] = relationship(back_populates="contacts")
@@ -252,6 +258,57 @@ def _wal_on_connect(dbapi_connection, connection_record):
 
 Base.metadata.create_all(engine)
 
+# Auto-migrate: Add relationship tracking columns if they don't exist
+def _ensure_relationship_tracking_columns():
+    """Ensure relationship tracking columns exist in contacts table."""
+    try:
+        with engine.connect() as conn:
+            if "postgresql" in DATABASE_URL.lower():
+                # PostgreSQL - check and add columns
+                columns_to_add = [
+                    ("relationship_stage", "VARCHAR(100)"),
+                    ("timeline", "TEXT"),
+                    ("gmail_thread_id", "VARCHAR(500)"),
+                    ("last_interaction_date", "DATE"),
+                ]
+                for col_name, col_type in columns_to_add:
+                    result = conn.execute(text(f"""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name='contacts' AND column_name='{col_name}'
+                    """))
+                    if result.fetchone() is None:
+                        conn.execute(text(f"""
+                            ALTER TABLE contacts 
+                            ADD COLUMN {col_name} {col_type}
+                        """))
+                        conn.commit()
+            else:
+                # SQLite - check and add columns
+                result = conn.execute(text("PRAGMA table_info(contacts)"))
+                columns = [row[1] for row in result.fetchall()]
+                columns_to_add = [
+                    ("relationship_stage", "VARCHAR(100)"),
+                    ("timeline", "TEXT"),
+                    ("gmail_thread_id", "VARCHAR(500)"),
+                    ("last_interaction_date", "DATE"),
+                ]
+                for col_name, col_type in columns_to_add:
+                    if col_name not in columns:
+                        conn.execute(text(f"""
+                            ALTER TABLE contacts 
+                            ADD COLUMN {col_name} {col_type}
+                        """))
+                        conn.commit()
+    except Exception as e:
+        print(f"Warning: Could not auto-migrate relationship tracking columns: {e}")
+
+# Run migration on import
+try:
+    _ensure_relationship_tracking_columns()
+except Exception as e:
+    print(f"Warning: Relationship tracking migration check failed: {e}")
+
 # Auto-migrate: Add has_public_profile column if it doesn't exist
 def _ensure_has_public_profile_column():
     """Ensure has_public_profile column exists in users table."""
@@ -399,6 +456,10 @@ def update_contact(
     category: Optional[str] = None,
     date_first_meeting: Optional[date] = None,
     date_next_follow_up: Optional[date] = None,
+    relationship_stage: Optional[str] = None,
+    timeline: Optional[str] = None,
+    gmail_thread_id: Optional[str] = None,
+    last_interaction_date: Optional[date] = None,
 ) -> Contact:
     """Update a contact for a given contact_id and user_id."""
     with get_session() as s:
@@ -427,6 +488,14 @@ def update_contact(
             contact.date_first_meeting = date_first_meeting
         if date_next_follow_up is not None:
             contact.date_next_follow_up = date_next_follow_up
+        if relationship_stage is not None:
+            contact.relationship_stage = relationship_stage
+        if timeline is not None:
+            contact.timeline = timeline
+        if gmail_thread_id is not None:
+            contact.gmail_thread_id = gmail_thread_id
+        if last_interaction_date is not None:
+            contact.last_interaction_date = last_interaction_date
 
         s.flush()
         s.refresh(contact)
