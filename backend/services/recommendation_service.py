@@ -6,15 +6,18 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from typing import List, Tuple, Dict, Any, Optional
-import torch
 
 # Try to import ML models - handle gracefully if not available
 try:
+    import torch
     from sentence_transformers import SentenceTransformer, util
     ML_AVAILABLE = True
+    TORCH_AVAILABLE = True
 except ImportError:
     ML_AVAILABLE = False
-    print("Warning: ML libraries not available. Recommendations will use simple matching.")
+    TORCH_AVAILABLE = False
+    torch = None  # type: ignore
+    print("Warning: ML libraries (torch/sentence-transformers) not available. Recommendations will use simple matching.")
 
 from models.database_functions import (
     get_session, User, select, Contact, NotFoundError
@@ -30,8 +33,10 @@ class Connection:
         self.company_or_school = company_or_school
 
 
-def normalize_sparse_scores(scores: torch.Tensor) -> torch.Tensor:
+def normalize_sparse_scores(scores: Any) -> Any:
     """Normalize sparse similarity scores to 0-1 range."""
+    if not TORCH_AVAILABLE or torch is None:
+        return scores  # Return as-is if torch not available
     min_score = scores.min()
     max_score = scores.max()
     if max_score - min_score == 0:
