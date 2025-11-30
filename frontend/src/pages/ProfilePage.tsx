@@ -70,9 +70,9 @@ const ProfilePage = () => {
           visibility: profile.visibility !== false,
         });
       } else {
-        // No public profile yet - initialize with user data
+        // No public profile yet - default to public with user data
         setHasPublicProfile(false);
-        setPublicProfileVisible(false);
+        setPublicProfileVisible(true); // Default to public
         setPublicProfileData({
           display_name: user.name || '',
           school: user.company_or_school || '',
@@ -80,16 +80,23 @@ const ProfilePage = () => {
           industry_tags: '',
           contact_method: 'email',
           contact_info: user.email || '',
-          visibility: true,
+          visibility: true, // Default to visible
         });
+        // Auto-create public profile if user has name and (school or role)
+        if (user.name && (user.company_or_school || user.role)) {
+          // Auto-create in background
+          setTimeout(() => {
+            handleSavePublicProfile();
+          }, 500);
+        }
       }
     } catch (error: any) {
-      // 404 means no public profile exists yet - that's fine
+      // 404 means no public profile exists yet - default to public
       if (error.response?.status !== 404) {
         console.error('Failed to load public profile:', error);
       }
       setHasPublicProfile(false);
-      setPublicProfileVisible(false);
+      setPublicProfileVisible(true); // Default to public
       setPublicProfileData({
         display_name: user.name || '',
         school: user.company_or_school || '',
@@ -97,8 +104,14 @@ const ProfilePage = () => {
         industry_tags: '',
         contact_method: 'email',
         contact_info: user.email || '',
-        visibility: true,
+        visibility: true, // Default to visible
       });
+      // Auto-create public profile if user has name and (school or role)
+      if (user.name && (user.company_or_school || user.role)) {
+        setTimeout(() => {
+          handleSavePublicProfile();
+        }, 500);
+      }
     } finally {
       setIsLoadingPublicProfile(false);
     }
@@ -188,6 +201,30 @@ const ProfilePage = () => {
         company_or_school: editedCompanyOrSchool.trim() || undefined,
         role: editedRole.trim() || undefined,
       });
+      
+      // Auto-create/update public profile if it's visible
+      if (publicProfileVisible && editedName.trim()) {
+        try {
+          const industryTagsArray = publicProfileData.industry_tags
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(tag => tag.length > 0);
+
+          await publicProfilesApi.createOrUpdate({
+            display_name: editedName.trim(),
+            school: editedCompanyOrSchool.trim() || undefined,
+            role: editedRole.trim() || undefined,
+            industry_tags: industryTagsArray.length > 0 ? industryTagsArray : undefined,
+            contact_method: publicProfileData.contact_method,
+            contact_info: publicProfileData.contact_info.trim() || editedCompanyOrSchool.trim() || undefined,
+            visibility: true,
+          });
+        } catch (pubError) {
+          // Don't fail profile update if public profile fails
+          console.error('Failed to update public profile:', pubError);
+        }
+      }
+      
       toast.success('Profile updated successfully!');
       // Force a page reload to update the auth context
       window.location.reload();
@@ -441,9 +478,29 @@ const ProfilePage = () => {
             <div className="space-y-4">
               <div>
                 <h3 className="text-lg font-semibold mb-2">Public Profile & Discover</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Make your profile visible on the Discover page so other users can find and connect with you.
-                </p>
+                <Card className="border-primary/50 bg-primary/5 mb-4">
+                  <CardContent className="pt-6">
+                    <div className="flex items-start gap-3">
+                      <Globe className="h-5 w-5 text-primary mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium mb-2">Your profile is public by default</p>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Only the following information is shared on the Discover page:
+                        </p>
+                        <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1 mb-2">
+                          <li>Your display name</li>
+                          <li>School or company</li>
+                          <li>Role or profession</li>
+                          <li>Industry tags (if you add them)</li>
+                          <li>Contact method (email or LinkedIn - only if you choose to share)</li>
+                        </ul>
+                        <p className="text-xs font-medium text-primary">
+                          ✓ Your contacts, meetings, goals, and other private data are never shared
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
 
               {/* Toggle Public Profile */}
@@ -456,12 +513,12 @@ const ProfilePage = () => {
                   )}
                   <div>
                     <Label htmlFor="public-profile" className="font-medium cursor-pointer">
-                      Make My Profile Public
+                      {publicProfileVisible ? "Profile is Public" : "Make Profile Private"}
                     </Label>
                     <p className="text-xs text-muted-foreground">
                       {publicProfileVisible 
-                        ? "Your profile is visible on the Discover page"
-                        : "Your profile is hidden from other users"}
+                        ? "Your profile is visible on the Discover page. Turn off to make it private."
+                        : "Your profile is hidden from other users. Turn on to make it public."}
                     </p>
                   </div>
                 </div>
