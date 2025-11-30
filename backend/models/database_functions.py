@@ -252,6 +252,45 @@ def _wal_on_connect(dbapi_connection, connection_record):
 
 Base.metadata.create_all(engine)
 
+# Auto-migrate: Add has_public_profile column if it doesn't exist
+def _ensure_has_public_profile_column():
+    """Ensure has_public_profile column exists in users table."""
+    try:
+        with engine.connect() as conn:
+            if "postgresql" in DATABASE_URL.lower():
+                # PostgreSQL - check if column exists
+                result = conn.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='users' AND column_name='has_public_profile'
+                """))
+                if result.fetchone() is None:
+                    conn.execute(text("""
+                        ALTER TABLE users 
+                        ADD COLUMN has_public_profile BOOLEAN NOT NULL DEFAULT FALSE
+                    """))
+                    conn.commit()
+            else:
+                # SQLite - check if column exists
+                result = conn.execute(text("PRAGMA table_info(users)"))
+                columns = [row[1] for row in result.fetchall()]
+                if 'has_public_profile' not in columns:
+                    conn.execute(text("""
+                        ALTER TABLE users 
+                        ADD COLUMN has_public_profile BOOLEAN NOT NULL DEFAULT 0
+                    """))
+                    conn.commit()
+    except Exception as e:
+        # Don't fail startup if migration fails - just log it
+        print(f"Warning: Could not auto-migrate has_public_profile column: {e}")
+
+# Run migration on import
+try:
+    from sqlalchemy import text
+    _ensure_has_public_profile_column()
+except Exception as e:
+    print(f"Warning: Auto-migration check failed: {e}")
+
 # Session factory
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
