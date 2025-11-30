@@ -1,4 +1,4 @@
-import { Search, Filter, Plus, Mail, Phone, Building2, Calendar, Edit, X, Trash2, CheckSquare, Square, CheckCircle, FileText } from "lucide-react";
+import { Search, Filter, Plus, Mail, Phone, Building2, Calendar, Edit, X, Trash2, CheckSquare, Square, CheckCircle, FileText, AlertCircle, Clock, CheckCircle2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { contactsApi, interactionsApi } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { GmailPluginDemo } from "@/components/GmailPluginDemo";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Helper function to parse date strings as local dates to avoid timezone issues
 const parseLocalDate = (dateString: string): Date | null => {
@@ -29,6 +30,35 @@ const parseLocalDate = (dateString: string): Date | null => {
   } catch {
     return null;
   }
+};
+
+// Helper function to calculate contact status (Active, Awaiting Response, Stale)
+const calculateContactStatus = (contact: any): { status: 'active' | 'awaiting' | 'stale', label: string, color: string } => {
+  const now = new Date();
+  const lastInteraction = contact.last_interaction_date 
+    ? new Date(contact.last_interaction_date) 
+    : contact.date_first_meeting 
+    ? new Date(contact.date_first_meeting) 
+    : null;
+  
+  if (!lastInteraction) {
+    return { status: 'stale', label: 'Stale Contact', color: 'bg-red-100 text-red-800 border-red-300' };
+  }
+  
+  const daysSinceInteraction = Math.floor((now.getTime() - lastInteraction.getTime()) / (1000 * 60 * 60 * 24));
+  
+  // If last interaction was within 7 days, it's active
+  if (daysSinceInteraction <= 7) {
+    return { status: 'active', label: 'Active', color: 'bg-green-100 text-green-800 border-green-300' };
+  }
+  
+  // If last interaction was 8-30 days ago, awaiting response
+  if (daysSinceInteraction <= 30) {
+    return { status: 'awaiting', label: 'Awaiting Response', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' };
+  }
+  
+  // More than 30 days, it's stale
+  return { status: 'stale', label: 'Stale Contact', color: 'bg-red-100 text-red-800 border-red-300' };
 };
 
 // Helper function to calculate follow-up date based on tier and category
@@ -155,6 +185,8 @@ const Contacts = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState<string>('all');
+  const [selectedContact, setSelectedContact] = useState<any>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newContact, setNewContact] = useState({
     name: '',
@@ -411,16 +443,24 @@ const Contacts = () => {
 
   // Transform API data to match the UI format and filter by search query
   const transformedContacts = (contacts || [])
-    .map(contact => ({
-      ...contact,
-      role: contact?.job_title || 'Unknown',
-      phone: contact?.phone_number,
-      meetingCount: 0, // This would come from meetings API when integrated
-      lastContact: contact?.date_first_meeting || new Date().toISOString().split('T')[0],
-      nextFollowUp: contact?.date_next_follow_up || new Date().toISOString().split('T')[0],
-      thankYouSent: false, // This would be based on actual data
-      notes: "No notes yet" // This would come from notes field
-    }))
+    .map(contact => {
+      const status = calculateContactStatus(contact);
+      return {
+        ...contact,
+        role: contact?.job_title || 'Unknown',
+        phone: contact?.phone_number,
+        meetingCount: 0, // This would come from meetings API when integrated
+        lastContact: contact?.date_first_meeting || new Date().toISOString().split('T')[0],
+        nextFollowUp: contact?.date_next_follow_up || new Date().toISOString().split('T')[0],
+        thankYouSent: false, // This would be based on actual data
+        notes: "No notes yet", // This would come from notes field
+        status: status.status,
+        statusLabel: status.label,
+        statusColor: status.color,
+        relationshipStage: contact?.relationship_stage || null,
+        timeline: contact?.timeline ? JSON.parse(contact.timeline) : []
+      };
+    })
     .filter(contact => {
       if (!searchQuery.trim()) return true;
       if (!contact?.name) return false;
@@ -467,12 +507,18 @@ const Contacts = () => {
     );
   }
 
+  // Filter contacts by selected company
+  const filteredContacts = selectedCompany === 'all' 
+    ? transformedContacts 
+    : transformedContacts.filter(c => (c.company || 'No Company') === selectedCompany);
+
   return (
-    <div className="p-8 space-y-8 animate-fade-in">
-      <div className="flex justify-between items-center">
+    <div className="h-[calc(100vh-4rem)] flex flex-col animate-fade-in">
+      {/* Header */}
+      <div className="flex justify-between items-center p-6 border-b">
         <div>
-          <h1 className="text-4xl font-bold mb-2">Contacts and Emails</h1>
-          <p className="text-muted-foreground">Manage your professional network and email interactions</p>
+          <h1 className="text-3xl font-bold mb-1">Contacts</h1>
+          <p className="text-muted-foreground">Manage your professional network</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -876,273 +922,182 @@ const Contacts = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Gmail Plugin Demo - Show for beginners */}
-      <GmailPluginDemo />
-
-      {/* Search and Filter */}
-      <div className="flex gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search contacts..." 
-            className="pl-10 pr-10 bg-card/50 border-border/50"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover:bg-muted"
-              onClick={() => setSearchQuery('')}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-        <Button variant="outline" className="border-border/50 bg-card/50">
-          <Filter className="h-4 w-4 mr-2" />
-          Filter
-        </Button>
-      </div>
-
-      {/* Company Filter Badges */}
-      <div className="flex gap-2 flex-wrap">
-        <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary cursor-pointer hover:bg-primary/20">
-          All Companies ({loading ? "..." : transformedContacts.length})
-        </Badge>
-        {companies.map(company => (
-          <Badge key={company} variant="outline" className="border-border cursor-pointer hover:bg-muted">
-            {company} ({contactsByCompany[company].length})
-          </Badge>
-        ))}
-      </div>
-
-      {/* Search Indicator */}
-      {searchQuery && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Search className="h-4 w-4" />
-          <span>Showing {transformedContacts.length} result{transformedContacts.length !== 1 ? 's' : ''} for "{searchQuery}"</span>
-        </div>
-      )}
-
-      {/* Contacts Grouped by Company */}
-      <div className="space-y-8">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading contacts...</p>
-            </div>
-          </div>
-        ) : transformedContacts.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              {searchQuery ? (
-                <>
-                  <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No contacts found</h3>
-                  <p className="text-muted-foreground mb-4">
-                    No contacts match "{searchQuery}". Try adjusting your search terms.
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setSearchQuery('')}
-                    className="mr-2"
-                  >
-                    Clear Search
-                  </Button>
-                  <Button onClick={() => setIsDialogOpen(true)} className="bg-primary hover:bg-primary/90">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add New Contact
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Plus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No contacts yet</h3>
-                  <p className="text-muted-foreground mb-4">Start building your network by adding your first contact.</p>
-                  <Button onClick={() => setIsDialogOpen(true)} className="bg-primary hover:bg-primary/90">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Your First Contact
-                  </Button>
-                </>
+      {/* Main Content - Split View */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Panel - Compact Contact List */}
+        <div className="w-1/3 border-r flex flex-col">
+          {/* Search and Filter */}
+          <div className="p-4 border-b space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search contacts..." 
+                className="pl-10 pr-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                  onClick={() => setSearchQuery('')}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               )}
             </div>
+            <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by company" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Companies ({transformedContacts.length})</SelectItem>
+                {companies.map(company => (
+                  <SelectItem key={company} value={company}>
+                    {company} ({contactsByCompany[company].length})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        ) : (
-          companies.map(company => (
-          <div key={company} className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Building2 className="h-6 w-6 text-primary" />
-              <h2 className="text-2xl font-bold text-foreground">{company}</h2>
-              <Badge variant="secondary" className="ml-2">
-                {contactsByCompany[company].length} {contactsByCompany[company].length === 1 ? 'contact' : 'contacts'}
-              </Badge>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {contactsByCompany[company].map((contact, index) => (
-                <Card 
-                  key={index} 
-                  data-tour="contact-card"
-                  className="glass-card border-border hover:border-primary/50 transition-all cursor-pointer group"
-                  onClick={() => handleContactClick(contact)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center text-lg font-bold text-primary-foreground">
-                          {(contact.name || 'N').split(' ').map(n => n[0]).join('')}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                          <CardTitle className="text-lg group-hover:text-primary transition-colors">
-                              {contact.name || 'Unknown Contact'}
-                          </CardTitle>
-                            <Badge variant="outline" className="text-xs">
-                              {contact.category || 'Professional'}
-                            </Badge>
+
+          {/* Contact List */}
+          <div className="flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading contacts...</p>
+                </div>
+              </div>
+            ) : filteredContacts.length === 0 ? (
+              <div className="flex items-center justify-center py-12 px-4">
+                <div className="text-center">
+                  <p className="text-muted-foreground mb-4">
+                    {searchQuery ? 'No contacts match your search' : 'No contacts yet'}
+                  </p>
+                  <Button onClick={() => setIsDialogOpen(true)} size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Contact
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {filteredContacts.map((contact) => {
+                  const isSelected = selectedContact?.contact_id === contact.contact_id;
+                  return (
+                    <Card
+                      key={contact.contact_id}
+                      className={`rounded-none border-0 border-b cursor-pointer transition-colors ${
+                        isSelected 
+                          ? 'bg-primary/10 border-l-4 border-l-primary' 
+                          : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() => setSelectedContact(contact)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-sm font-bold text-primary-foreground flex-shrink-0">
+                            {(contact.name || 'N').split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                           </div>
-                          <p className="text-sm text-muted-foreground">{contact.role}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                      {contact.thankYouSent ? (
-                          <CheckSquare className="h-5 w-5 text-primary" />
-                        ) : (
-                          <Square className="h-5 w-5 text-muted-foreground" />
-                        )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditContact(contact);
-                          }}
-                          className="h-8 w-8 p-0 hover:bg-primary/10"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => e.stopPropagation()}
-                              className="h-8 w-8 p-0 hover:bg-destructive/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Contact</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete "{contact.name || 'this contact'}"? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteContact(contact)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-semibold text-sm truncate">{contact.name || 'Unknown'}</h3>
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs ${contact.statusColor} border`}
                               >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent className="space-y-4">
-                    {/* Contact Info */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-foreground">{contact.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-foreground">{contact.phone}</span>
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* Stats */}
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Interactions:</span>
-                          <Badge variant="secondary" className="text-xs">{contact.interactionCount || 0}</Badge>
+                                {contact.status === 'active' && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                                {contact.status === 'awaiting' && <Clock className="h-3 w-3 mr-1" />}
+                                {contact.status === 'stale' && <AlertCircle className="h-3 w-3 mr-1" />}
+                                {contact.statusLabel}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">{contact.role}</p>
+                            {contact.company && (
+                              <p className="text-xs text-muted-foreground truncate">{contact.company}</p>
+                            )}
+                            {contact.relationshipStage && (
+                              <Badge variant="secondary" className="text-xs mt-1">
+                                {contact.relationshipStage}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Meetings:</span>
-                        <Badge variant="secondary" className="text-xs">{contact.meetingCount}</Badge>
-                        </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Last Contact: {(() => {
-                          const date = parseLocalDate(contact.lastContact);
-                          return date ? date.toLocaleDateString() : 'Not set';
-                        })()}
-                      </div>
-                    </div>
-
-                    {/* Next Follow Up */}
-                    <div className="flex items-center justify-between p-2 bg-primary/5 rounded-md">
-                      <span className="text-sm font-medium text-foreground">Next Follow-up:</span>
-                      <span className="text-sm text-primary font-semibold">
-                        {(() => {
-                          const date = parseLocalDate(contact.nextFollowUp);
-                          return date ? date.toLocaleDateString() : 'Not set';
-                        })()}
-                      </span>
-                    </div>
-
-                    {/* Conversation Notes */}
-                    <div className="space-y-1">
-                      <span className="text-xs font-medium text-muted-foreground">Notes:</span>
-                      <p className="text-sm text-foreground leading-relaxed">{contact.notes}</p>
-                    </div>
-
-                    <Separator />
-
-                    {/* Actions */}
-                    <div className="flex gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="default" 
-                        className="flex-1"
-                        onClick={(e) => handleEmailClick(contact, e)}
-                      >
-                        <Mail className="h-3 w-3 mr-2" />
-                        Email
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1">
-                        <Phone className="h-3 w-3 mr-2" />
-                        Call
-                      </Button>
-                    </div>
-
-                    {!contact.thankYouSent && (
-                      <Button size="sm" variant="secondary" className="w-full">
-                        <CheckCircle className="h-3 w-3 mr-2" />
-                        Send Thank You
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        ))
-        )}
+        </div>
+
+        {/* Right Panel - Contact Detail */}
+        <div className="flex-1 overflow-y-auto">
+          {selectedContact ? (
+            <div className="p-6">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(`/contacts/${selectedContact.contact_id}`)}
+                className="mb-4"
+              >
+                View Full Details →
+              </Button>
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold mb-2">{selectedContact.name}</h2>
+                  <p className="text-muted-foreground">{selectedContact.role}</p>
+                  {selectedContact.company && (
+                    <p className="text-muted-foreground">{selectedContact.company}</p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Badge className={selectedContact.statusColor}>
+                    {selectedContact.statusLabel}
+                  </Badge>
+                  {selectedContact.relationshipStage && (
+                    <Badge variant="outline">{selectedContact.relationshipStage}</Badge>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {selectedContact.email && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Email</Label>
+                      <p className="text-sm">{selectedContact.email}</p>
+                    </div>
+                  )}
+                  {selectedContact.phone && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Phone</Label>
+                      <p className="text-sm">{selectedContact.phone}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={() => handleEmailClick(selectedContact)}>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Email
+                  </Button>
+                  <Button variant="outline" onClick={() => handleEditContact(selectedContact)}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              <div className="text-center">
+                <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Select a contact to view details</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -141,6 +141,10 @@ class ContactUpdate(BaseModel):
     tier: Optional[str] = None
     date_first_meeting: Optional[str] = None  # ISO date
     date_next_follow_up: Optional[str] = None  # ISO date
+    relationship_stage: Optional[str] = None
+    timeline: Optional[str] = None  # JSON string
+    gmail_thread_id: Optional[str] = None
+    last_interaction_date: Optional[str] = None  # ISO date
 
 class ContactDelete(BaseModel):
     contact_id: int

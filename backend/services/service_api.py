@@ -82,6 +82,10 @@ def contact_to_dict(contact: Contact) -> Dict[str, Any]:
         "date_first_meeting": contact.date_first_meeting.isoformat() if contact.date_first_meeting else None,
         "date_next_follow_up": contact.date_next_follow_up.isoformat() if contact.date_next_follow_up else None,
         "date_created": contact.date_created.isoformat() if contact.date_created else None,
+        "relationship_stage": contact.relationship_stage,
+        "timeline": contact.timeline,
+        "gmail_thread_id": contact.gmail_thread_id,
+        "last_interaction_date": contact.last_interaction_date.isoformat() if contact.last_interaction_date else None,
     }
 
 
@@ -225,6 +229,10 @@ def update_contact_service(
     tier: Optional[str] = None,  # Not stored in DB, kept for API compatibility
     date_first_meeting: Optional[str] = None,
     date_next_follow_up: Optional[str] = None,
+    relationship_stage: Optional[str] = None,
+    timeline: Optional[str] = None,
+    gmail_thread_id: Optional[str] = None,
+    last_interaction_date: Optional[str] = None,
 ) -> Dict[str, Any]:
     contact = update_contact(
         contact_id=contact_id,
@@ -237,6 +245,10 @@ def update_contact_service(
         category=category,
         date_first_meeting=None if not date_first_meeting else __import__("datetime").date.fromisoformat(date_first_meeting),
         date_next_follow_up=None if not date_next_follow_up else __import__("datetime").date.fromisoformat(date_next_follow_up),
+        relationship_stage=relationship_stage,
+        timeline=timeline,
+        gmail_thread_id=gmail_thread_id,
+        last_interaction_date=None if not last_interaction_date else __import__("datetime").date.fromisoformat(last_interaction_date),
     )
     return contact_to_dict(contact)
 

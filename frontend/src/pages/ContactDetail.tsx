@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { contactsApi, interactionsApi, meetingsApi } from "@/lib/api";
@@ -18,6 +19,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import MeetingList from "@/components/MeetingList";
+import { ContactTimeline, TimelineStage } from "@/components/ContactTimeline";
+import { ContactChecklist } from "@/components/ContactChecklist";
 
 // Helper function to parse date strings as local dates to avoid timezone issues
 const parseLocalDate = (dateString: string): Date | null => {
@@ -41,6 +44,7 @@ const ContactDetail = () => {
   const [contact, setContact] = useState<any>(null);
   const [interactions, setInteractions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [timeline, setTimeline] = useState<TimelineStage[]>([]);
   const [isInteractionDialogOpen, setIsInteractionDialogOpen] = useState(false);
   const [isEmailPasteDialogOpen, setIsEmailPasteDialogOpen] = useState(false);
   const [emailText, setEmailText] = useState("");
@@ -731,6 +735,135 @@ const ContactDetail = () => {
               </p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Timeline, Checklist, and Notes Tabs */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Relationship Tracking</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="timeline" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="timeline">Timeline</TabsTrigger>
+              <TabsTrigger value="checklist">Checklist</TabsTrigger>
+              <TabsTrigger value="notes">Notes</TabsTrigger>
+            </TabsList>
+            <TabsContent value="timeline" className="mt-4">
+              <ContactTimeline
+                timeline={timeline}
+                currentStage={contact?.relationship_stage || null}
+                onStageUpdate={async (stage, completed, notes) => {
+                  // Update timeline and relationship stage
+                  const updatedTimeline = [...timeline];
+                  const existingIndex = updatedTimeline.findIndex(t => t.stage === stage);
+                  const timelineEntry = {
+                    stage,
+                    completed,
+                    timestamp: completed ? new Date().toISOString() : null,
+                    notes: notes || null
+                  };
+                  
+                  if (existingIndex >= 0) {
+                    updatedTimeline[existingIndex] = timelineEntry;
+                  } else {
+                    updatedTimeline.push(timelineEntry);
+                  }
+                  
+                  setTimeline(updatedTimeline);
+                  
+                  // Update contact via API
+                  try {
+                    await contactsApi.updateContact(contact.contact_id, {
+                      contact_id: contact.contact_id,
+                      user_id: user?.userId || 0,
+                      relationship_stage: stage,
+                      timeline: JSON.stringify(updatedTimeline),
+                      last_interaction_date: new Date().toISOString().split('T')[0]
+                    });
+                    toast.success('Timeline updated');
+                    // Reload contact data
+                    const contacts = await contactsApi.getContacts(user?.userId || 0);
+                    const foundContact = contacts.find(c => c.contact_id === parseInt(contactId || '0'));
+                    if (foundContact) {
+                      setContact(foundContact);
+                      if (foundContact.timeline) {
+                        try {
+                          const parsedTimeline = typeof foundContact.timeline === 'string' 
+                            ? JSON.parse(foundContact.timeline) 
+                            : foundContact.timeline;
+                          setTimeline(Array.isArray(parsedTimeline) ? parsedTimeline : []);
+                        } catch (e) {
+                          console.error('Failed to parse timeline:', e);
+                        }
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Failed to update timeline:', error);
+                    toast.error('Failed to update timeline');
+                  }
+                }}
+              />
+            </TabsContent>
+            <TabsContent value="checklist" className="mt-4">
+              <ContactChecklist
+                timeline={timeline}
+                onToggle={async (stage, completed) => {
+                  const updatedTimeline = [...timeline];
+                  const existingIndex = updatedTimeline.findIndex(t => t.stage === stage);
+                  const timelineEntry = {
+                    stage,
+                    completed,
+                    timestamp: completed ? new Date().toISOString() : null,
+                    notes: existingIndex >= 0 ? updatedTimeline[existingIndex].notes : null
+                  };
+                  
+                  if (existingIndex >= 0) {
+                    updatedTimeline[existingIndex] = timelineEntry;
+                  } else {
+                    updatedTimeline.push(timelineEntry);
+                  }
+                  
+                  setTimeline(updatedTimeline);
+                  
+                  try {
+                    await contactsApi.updateContact(contact.contact_id, {
+                      contact_id: contact.contact_id,
+                      user_id: user?.userId || 0,
+                      timeline: JSON.stringify(updatedTimeline)
+                    });
+                    toast.success('Checklist updated');
+                    // Reload contact data
+                    const contacts = await contactsApi.getContacts(user?.userId || 0);
+                    const foundContact = contacts.find(c => c.contact_id === parseInt(contactId || '0'));
+                    if (foundContact && foundContact.timeline) {
+                      try {
+                        const parsedTimeline = typeof foundContact.timeline === 'string' 
+                          ? JSON.parse(foundContact.timeline) 
+                          : foundContact.timeline;
+                        setTimeline(Array.isArray(parsedTimeline) ? parsedTimeline : []);
+                      } catch (e) {
+                        console.error('Failed to parse timeline:', e);
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Failed to update checklist:', error);
+                    toast.error('Failed to update checklist');
+                  }
+                }}
+              />
+            </TabsContent>
+            <TabsContent value="notes" className="mt-4">
+              <div className="space-y-4">
+                <Textarea
+                  placeholder="Add notes about this contact..."
+                  className="min-h-[200px]"
+                />
+                <Button>Save Notes</Button>
+              </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 

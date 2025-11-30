@@ -55,8 +55,8 @@ export const contactsApi = {
     const response = await apiClient.post('/contacts', data);
     return response.data;
   },
-  updateContact: async (data: any) => {
-    const response = await apiClient.put('/contacts', data);
+  updateContact: async (contactId: number, data: any) => {
+    const response = await apiClient.put(`/contacts/${contactId}`, data);
     return response.data;
   },
   deleteContact: async (data: any) => {
