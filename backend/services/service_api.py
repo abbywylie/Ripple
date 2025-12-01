@@ -600,13 +600,19 @@ def get_public_profiles_service(
     role: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Get all visible public profiles with optional filters."""
+    print(f"[DEBUG] get_public_profiles_service called with: industry={industry}, school={school}, role={role}")
     profiles = get_public_profiles(
         industry=industry,
         school=school,
         role=role,
         visibility=True,
     )
-    return [public_profile_to_dict(profile) for profile in profiles]
+    print(f"[DEBUG] get_public_profiles returned {len(profiles)} profiles")
+    result = [public_profile_to_dict(profile) for profile in profiles]
+    print(f"[DEBUG] Converted to dicts: {len(result)} profiles")
+    if len(result) > 0:
+        print(f"[DEBUG] Sample profile visibility: {result[0].get('visibility')} (type: {type(result[0].get('visibility'))})")
+    return result
 
 
 def get_public_profile_by_user_id_service(user_id: int) -> Optional[Dict[str, Any]]:

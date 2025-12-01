@@ -90,29 +90,50 @@ const Discover = () => {
       if (schoolFilter && schoolFilter !== "all") params.school = schoolFilter;
       if (roleFilter && roleFilter !== "all") params.role = roleFilter;
       
-      console.log("Loading profiles with params:", params);
+      console.log("[Discover] Loading profiles with params:", params);
       const data = await publicProfilesApi.getAll(params);
-      console.log("Profiles loaded:", data);
+      console.log("[Discover] Raw API response:", data);
+      console.log("[Discover] Response type:", typeof data, "Is array:", Array.isArray(data));
+      console.log("[Discover] Response length:", Array.isArray(data) ? data.length : "N/A");
       
       if (Array.isArray(data)) {
+        console.log("[Discover] All profiles from API:", data.map(p => ({
+          user_id: p.user_id,
+          display_name: p.display_name,
+          visibility: p.visibility,
+          school: p.school,
+          role: p.role
+        })));
+        
         // Filter out current user's profile
-        const filtered = data.filter((p: PublicProfile) => p.user_id !== user?.userId);
-        console.log("Filtered profiles (excluding current user):", filtered);
+        const filtered = data.filter((p: PublicProfile) => {
+          const isNotCurrentUser = p.user_id !== user?.userId;
+          const isVisible = p.visibility !== false; // Double-check visibility
+          console.log(`[Discover] Profile ${p.user_id} (${p.display_name}): isNotCurrentUser=${isNotCurrentUser}, visibility=${p.visibility}, isVisible=${isVisible}`);
+          return isNotCurrentUser && isVisible;
+        });
+        console.log("[Discover] Filtered profiles (excluding current user):", filtered.length, filtered);
         setProfiles(filtered);
         // Immediately set filtered profiles to show results
         setFilteredProfiles(filtered);
       } else {
-        console.log("No profiles data or not an array:", data);
+        console.error("[Discover] API response is not an array:", data);
         setProfiles([]);
         setFilteredProfiles([]);
       }
     } catch (error: any) {
-      console.error("Failed to load profiles:", error);
+      console.error("[Discover] Failed to load profiles:", error);
+      console.error("[Discover] Error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      });
       setProfiles([]);
       setFilteredProfiles([]);
       // Only show error if we're on the browse tab
       if (activeTab === "browse") {
-        toast.error("Failed to load profiles");
+        toast.error(`Failed to load profiles: ${error.response?.data?.detail || error.message}`);
       }
     } finally {
       setLoading(false);

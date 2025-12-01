@@ -866,13 +866,20 @@ def get_public_profiles_endpoint(
 ):
     """Get all visible public profiles with optional filters. Public endpoint."""
     try:
+        print(f"[DEBUG] GET /public-profiles called with filters: industry={industry}, school={school}, role={role}")
         profiles = get_public_profiles_service(
             industry=industry,
             school=school,
             role=role,
         )
+        print(f"[DEBUG] Found {len(profiles)} visible public profiles")
+        if len(profiles) > 0:
+            print(f"[DEBUG] First profile sample: {profiles[0] if profiles else 'None'}")
         return profiles
     except Exception as e:
+        print(f"[ERROR] Failed to get public profiles: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to get public profiles: {str(e)}")
 
 
@@ -888,6 +895,50 @@ def get_public_profile_by_user_id_endpoint(user_id: int):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get public profile: {str(e)}")
+
+
+@app.get("/api/debug/public-profiles", response_model=dict)
+def debug_public_profiles_endpoint():
+    """Debug endpoint to check public profiles in database. Public endpoint."""
+    try:
+        from models.database_functions import get_session, PublicProfile, select, func
+        with get_session() as s:
+            # Get all profiles regardless of visibility
+            all_profiles = s.execute(select(PublicProfile)).scalars().all()
+            total_count = len(all_profiles)
+            
+            # Count by visibility
+            visible_count = s.execute(
+                select(func.count(PublicProfile.profile_id)).where(PublicProfile.visibility == True)
+            ).scalar()
+            hidden_count = s.execute(
+                select(func.count(PublicProfile.profile_id)).where(PublicProfile.visibility == False)
+            ).scalar()
+            
+            # Get sample profiles
+            visible_profiles = s.execute(
+                select(PublicProfile).where(PublicProfile.visibility == True).limit(5)
+            ).scalars().all()
+            
+            return {
+                "total_profiles": total_count,
+                "visible_count": visible_count,
+                "hidden_count": hidden_count,
+                "sample_visible_profiles": [
+                    {
+                        "user_id": p.user_id,
+                        "display_name": p.display_name,
+                        "visibility": p.visibility,
+                        "school": p.school,
+                        "role": p.role,
+                    }
+                    for p in visible_profiles
+                ]
+            }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Debug endpoint error: {str(e)}")
 
 
 @app.delete("/public-profiles/{user_id}", response_model=dict)
