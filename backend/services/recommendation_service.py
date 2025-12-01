@@ -1,23 +1,15 @@
 # Recommendation service for finding similar users based on job title and company
-# Uses hybrid dense + sparse embeddings for semantic similarity matching
+# Uses external ML API service to save memory on main backend
 
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from typing import List, Tuple, Dict, Any, Optional
+import requests
 
-# Try to import ML models - handle gracefully if not available
-try:
-    import torch
-    from sentence_transformers import SentenceTransformer, util
-    ML_AVAILABLE = True
-    TORCH_AVAILABLE = True
-except ImportError:
-    ML_AVAILABLE = False
-    TORCH_AVAILABLE = False
-    torch = None  # type: ignore
-    print("Warning: ML libraries (torch/sentence-transformers) not available. Recommendations will use simple matching.")
+# External ML recommendation API URL (set via environment variable)
+EXTERNAL_RECOMMENDATION_API_URL = os.getenv("EXTERNAL_RECOMMENDATION_API_URL", None)
 
 from models.database_functions import (
     get_session, User, select, Contact, NotFoundError
@@ -33,16 +25,69 @@ class Connection:
         self.company_or_school = company_or_school
 
 
-def normalize_sparse_scores(scores: Any) -> Any:
-    """Normalize sparse similarity scores to 0-1 range."""
-    if not TORCH_AVAILABLE or torch is None:
-        return scores  # Return as-is if torch not available
-    min_score = scores.min()
-    max_score = scores.max()
-    if max_score - min_score == 0:
-        return torch.zeros_like(scores)
-    normalized_scores = (scores - min_score) / (max_score - min_score)
-    return normalized_scores
+def call_external_recommendation_api(
+    user_id: int,
+    user_role: str,
+    user_company: str,
+    connections: List[Connection],
+    threshold: float = 0.65
+) -> Optional[List[Tuple[Connection, float]]]:
+    """Call external ML recommendation API service."""
+    if not EXTERNAL_RECOMMENDATION_API_URL:
+        return None
+    
+    try:
+        # Prepare data for external API
+        connections_data = [
+            {
+                "user_id": conn.user_id,
+                "name": conn.name,
+                "role": conn.role,
+                "company_or_school": conn.company_or_school
+            }
+            for conn in connections
+        ]
+        
+        payload = {
+            "user_id": user_id,
+            "user_role": user_role,
+            "user_company": user_company,
+            "connections": connections_data,
+            "threshold": threshold
+        }
+        
+        print(f"[Recommendation] Calling external API: {EXTERNAL_RECOMMENDATION_API_URL}")
+        response = requests.post(
+            EXTERNAL_RECOMMENDATION_API_URL,
+            json=payload,
+            timeout=10  # 10 second timeout
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            # Expected format: [{"user_id": 1, "similarity_score": 0.85}, ...]
+            recommendations = []
+            for item in result:
+                user_id_match = item.get("user_id")
+                score = item.get("similarity_score", 0.0)
+                # Find the connection object
+                connection = next((c for c in connections if c.user_id == user_id_match), None)
+                if connection and score >= threshold:
+                    recommendations.append((connection, float(score)))
+            
+            recommendations.sort(key=lambda x: x[1], reverse=True)
+            print(f"[Recommendation] External API returned {len(recommendations)} recommendations")
+            return recommendations
+        else:
+            print(f"[Recommendation] External API returned status {response.status_code}: {response.text}")
+            return None
+            
+    except requests.exceptions.RequestException as e:
+        print(f"[Recommendation] External API request failed: {e}")
+        return None
+    except Exception as e:
+        print(f"[Recommendation] Error processing external API response: {e}")
+        return None
 
 
 def get_user_and_potential_connections(user_id: int) -> Tuple[Connection, List[Connection]]:
@@ -136,11 +181,8 @@ def get_recommendations_simple(user_id: int, threshold: float = 0.5) -> List[Tup
     return scored_connections
 
 
-def get_recommendations_ml(user_id: int, threshold: float = 0.65) -> List[Tuple[Connection, float]]:
-    """ML-powered recommendations using hybrid dense + sparse embeddings."""
-    if not ML_AVAILABLE:
-        return get_recommendations_simple(user_id, threshold)
-    
+def get_recommendations_external(user_id: int, threshold: float = 0.65) -> List[Tuple[Connection, float]]:
+    """Get ML-powered recommendations from external API service."""
     try:
         logged_in_user, connections = get_user_and_potential_connections(user_id)
     except NotFoundError as e:
@@ -150,53 +192,35 @@ def get_recommendations_ml(user_id: int, threshold: float = 0.65) -> List[Tuple[
     if not connections:
         return []
     
-    # Prepare data for embedding
+    # Prepare data for external API
     user_role = logged_in_user.role or ""
     user_company = logged_in_user.company_or_school or ""
     
-    roles = [conn.role or "" for conn in connections]
-    companies = [conn.company_or_school or "" for conn in connections]
+    # Call external API
+    recommendations = call_external_recommendation_api(
+        user_id=user_id,
+        user_role=user_role,
+        user_company=user_company,
+        connections=connections,
+        threshold=threshold
+    )
     
-    try:
-        # Load models (use a lightweight model if custom one doesn't exist)
-        try:
-            dense_model = SentenceTransformer("all-MiniLM-L6-v2")  # Lightweight fallback
-        except:
-            dense_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-        
-        # Create embeddings
-        dense_embeddings_user_role = dense_model.encode(user_role, convert_to_tensor=True)
-        dense_embeddings_user_company = dense_model.encode(user_company, convert_to_tensor=True)
-        dense_embeddings_roles = dense_model.encode(roles, convert_to_tensor=True)
-        dense_embeddings_companies = dense_model.encode(companies, convert_to_tensor=True)
-        
-        # Calculate cosine similarity
-        role_similarity = util.cos_sim(dense_embeddings_user_role, dense_embeddings_roles)[0]
-        company_similarity = util.cos_sim(dense_embeddings_user_company, dense_embeddings_companies)[0]
-        
-        # Weighted combination: 75% role, 25% company
-        total_sim = (0.75 * role_similarity + 0.25 * company_similarity).flatten()
-        
-        scored_connections = list(zip(connections, total_sim))
-        
-        recommendations = [
-            (connection, float(score.item()))
-            for connection, score in scored_connections
-            if score.item() > threshold
-        ]
-        
-        recommendations.sort(key=lambda x: x[1], reverse=True)
+    if recommendations is not None:
         return recommendations
-        
-    except Exception as e:
-        print(f"ML recommendation error: {e}, falling back to simple matching")
-        return get_recommendations_simple(user_id, threshold)
+    
+    # Fallback to simple matching if external API unavailable
+    print("[Recommendation] External API unavailable, falling back to simple matching")
+    return get_recommendations_simple(user_id, threshold)
 
 
 def get_recommendations_for_user(user_id: int, threshold: float = 0.65, use_ml: bool = True) -> List[Dict[str, Any]]:
-    """Get recommendations for a user, returning as dictionary format for API."""
-    if use_ml and ML_AVAILABLE:
-        recommendations = get_recommendations_ml(user_id, threshold)
+    """Get recommendations for a user, returning as dictionary format for API.
+    
+    If EXTERNAL_RECOMMENDATION_API_URL is set, calls external ML service.
+    Otherwise falls back to simple matching.
+    """
+    if use_ml and EXTERNAL_RECOMMENDATION_API_URL:
+        recommendations = get_recommendations_external(user_id, threshold)
     else:
         recommendations = get_recommendations_simple(user_id, threshold)
     

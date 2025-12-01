@@ -10,6 +10,8 @@ python-dotenv==1.0.0
 numpy==1.24.3
 scikit-learn==1.3.2
 # ML libraries for recommendation system (optional - will fallback to simple matching if not available)
-sentence-transformers>=2.2.0
-torch>=2.0.0
+# ML libraries removed - using external recommendation API service instead
+# sentence-transformers>=2.2.0
+# torch>=2.0.0
+requests>=2.31.0
 
