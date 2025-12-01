@@ -146,6 +146,22 @@ class ContactUpdate(BaseModel):
     gmail_thread_id: Optional[str] = None
     last_interaction_date: Optional[str] = None  # ISO date
 
+class ContactUpdatePartial(BaseModel):
+    """Partial update model for REST-style endpoint (contact_id and user_id come from path/token)"""
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
+    company: Optional[str] = None
+    job_title: Optional[str] = None
+    category: Optional[str] = None
+    tier: Optional[str] = None
+    date_first_meeting: Optional[str] = None  # ISO date
+    date_next_follow_up: Optional[str] = None  # ISO date
+    relationship_stage: Optional[str] = None
+    timeline: Optional[str] = None  # JSON string
+    gmail_thread_id: Optional[str] = None
+    last_interaction_date: Optional[str] = None  # ISO date
+
 class ContactDelete(BaseModel):
     contact_id: int
     user_id: int
@@ -489,6 +505,32 @@ def update_contact_endpoint(payload: ContactUpdate):
         return update_contact_service(**payload.dict())
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.put("/contacts/{contact_id}", response_model=dict)
+def update_contact_by_id_endpoint(contact_id: int, payload: ContactUpdatePartial, token: str = Depends(oauth2_scheme)):
+    """REST-style endpoint: PUT /contacts/{contact_id}"""
+    try:
+        jwt_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = jwt_payload["user_id"]
+        
+        # Merge path parameter and body data
+        update_data = payload.dict()
+        update_data["contact_id"] = contact_id
+        update_data["user_id"] = user_id
+        
+        return update_contact_service(**update_data)
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        print(f"Error updating contact {contact_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to update contact: {str(e)}")
 
 
 @app.delete("/contacts", response_model=dict)
