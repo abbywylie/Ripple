@@ -235,20 +235,34 @@ const Contacts = () => {
           );
           
           setContacts(contactsWithInteractions);
+          
+          // Check for duplicates after loading
+          const duplicates = detectDuplicates(contactsWithInteractions);
+          if (duplicates.length > 0) {
+            // Show alert for each duplicate group
+            duplicates.forEach((dup, index) => {
+              setTimeout(() => {
+                const names = dup.contacts.map(c => c.name).join(', ');
+                toast.warning(
+                  `Possible duplicate contacts detected: ${names}. ${dup.reason}`,
+                  { duration: 8000 }
+                );
+              }, index * 500); // Stagger alerts
+            });
+          }
         } catch (error) {
           console.error('Failed to load contacts:', error);
           setContacts([]);
+        } finally {
+          setLoading(false);
         }
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
-    if (user) {
-      loadContacts();
-    } else {
-      setLoading(false);
-    }
-  }, [user?.userId, user]);
+    loadContacts();
+  }, [user?.userId]);
 
   // Create new contact
   const handleCreateContact = async () => {
