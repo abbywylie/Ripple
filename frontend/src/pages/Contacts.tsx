@@ -401,6 +401,7 @@ const Contacts = () => {
       
       const contact1 = contacts[i];
       const potentialDuplicates = [contact1];
+      let groupReason = ""; // Declare reason outside inner loop
 
       for (let j = i + 1; j < contacts.length; j++) {
         if (checked.has(contacts[j].contact_id)) continue;
@@ -458,11 +459,15 @@ const Contacts = () => {
         if (isDuplicate) {
           potentialDuplicates.push(contact2);
           checked.add(contact2.contact_id);
+          // Store the reason for this duplicate group (use first reason found)
+          if (!groupReason) {
+            groupReason = reason;
+          }
         }
       }
 
       if (potentialDuplicates.length > 1) {
-        duplicates.push({ contacts: potentialDuplicates, reason });
+        duplicates.push({ contacts: potentialDuplicates, reason: groupReason || "Possible duplicate contacts" });
         potentialDuplicates.forEach(c => checked.add(c.contact_id));
       }
     }
