@@ -8,7 +8,7 @@ import os
 
 from sqlalchemy import (
     create_engine, String, Integer, DateTime, Date, Time,
-    Text, Boolean, ForeignKey, event, select, func
+    Text, Boolean, ForeignKey, event, select, func, text
 )
 from sqlalchemy.orm import (
     DeclarativeBase, Mapped, mapped_column, relationship,
