@@ -1097,6 +1097,11 @@ def get_public_profiles(
 ) -> list[PublicProfile]:
     """Get all visible public profiles with optional filters."""
     with get_session() as s:
+        # Debug: Check total profiles in database
+        total_count = s.execute(select(func.count(PublicProfile.profile_id))).scalar()
+        visible_count = s.execute(select(func.count(PublicProfile.profile_id)).where(PublicProfile.visibility == True)).scalar()
+        print(f"[DEBUG] Database stats: Total profiles={total_count}, Visible profiles={visible_count}, Filtering for visibility={visibility}")
+        
         query = select(PublicProfile).where(PublicProfile.visibility == visibility)
         
         if industry:
@@ -1110,6 +1115,9 @@ def get_public_profiles(
             query = query.where(PublicProfile.role.ilike(f"%{role}%"))
         
         results = s.execute(query.order_by(PublicProfile.created_at.desc())).scalars().all()
+        print(f"[DEBUG] Query returned {len(results)} profiles after filters")
+        if len(results) > 0:
+            print(f"[DEBUG] First result: user_id={results[0].user_id}, visibility={results[0].visibility}, display_name={results[0].display_name}")
         return list(results)
 
 
