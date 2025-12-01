@@ -6,6 +6,44 @@ export interface NetworkingTip {
 }
 
 export const networkingTips: NetworkingTip[] = [
+  // Free Articles (shown first)
+  {
+    title: "Tips to Network Like a Pro and Build Your Inner Circle",
+    source: "VeryWellMind",
+    url: "https://www.verywellmind.com/overcome-challenges-and-network-like-a-pro-11729689",
+    paid: false
+  },
+  {
+    title: "10 Tips for Mastering the Art of Networking",
+    source: "Baylor University",
+    url: "https://hankamer.baylor.edu/news/story/2024/10-tips-mastering-art-networking",
+    paid: false
+  },
+  {
+    title: "39 Best Networking Tips For Anyone, Including Introverts",
+    source: "Science of People",
+    url: "https://www.scienceofpeople.com/networking/",
+    paid: false
+  },
+  {
+    title: "20 Networking Tips to Try When You Don't Like Networking",
+    source: "Idealist",
+    url: "https://www.idealist.org/en/careers/networking-tips",
+    paid: false
+  },
+  {
+    title: "Master Networking: Tips & Strategies for Success",
+    source: "Investopedia",
+    url: "https://www.investopedia.com/terms/n/networking.asp",
+    paid: false
+  },
+  {
+    title: "Top Tips for Successful Networking",
+    source: "Oxford University",
+    url: "https://pod.admin.ox.ac.uk/files/toptipsforsuccessfulnetworkingpdf",
+    paid: false
+  },
+  // Paid Articles (shown second)
   {
     title: "A Better Approach to Networking",
     source: "Harvard Business Review",

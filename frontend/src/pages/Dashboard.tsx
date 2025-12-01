@@ -721,39 +721,7 @@ const Dashboard = () => {
                     <span>Curated networking resources from top business schools</span>
                   </div>
                   
-                  {/* Paid Articles Section */}
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                      <span className="text-primary">Paid Articles</span>
-                      <Badge variant="outline" className="text-xs">Premium</Badge>
-                    </h3>
-                    {networkingTips.filter(tip => tip.paid).map((tip, index) => (
-                      <div 
-                        key={`paid-${index}`} 
-                        className="border rounded-lg p-4 hover:border-primary/50 hover:bg-muted/50 transition-all group"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm mb-1 group-hover:text-primary transition-colors">
-                              {tip.title}
-                            </p>
-                            <p className="text-xs text-muted-foreground">{tip.source}</p>
-                          </div>
-                          <a
-                            href={tip.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-shrink-0 text-primary hover:text-primary/80 transition-colors"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Free Articles Section */}
+                  {/* Free Articles Section (shown first) */}
                   <div className="space-y-3">
                     <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                       <span>Free Articles</span>
@@ -786,6 +754,38 @@ const Dashboard = () => {
                     ) : (
                       <p className="text-sm text-muted-foreground italic">No free articles yet. Check back soon!</p>
                     )}
+                  </div>
+
+                  {/* Paid Articles Section (shown second) */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <span className="text-primary">Paid Articles</span>
+                      <Badge variant="outline" className="text-xs">Premium</Badge>
+                    </h3>
+                    {networkingTips.filter(tip => tip.paid).map((tip, index) => (
+                      <div 
+                        key={`paid-${index}`} 
+                        className="border rounded-lg p-4 hover:border-primary/50 hover:bg-muted/50 transition-all group"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm mb-1 group-hover:text-primary transition-colors">
+                              {tip.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{tip.source}</p>
+                          </div>
+                          <a
+                            href={tip.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-shrink-0 text-primary hover:text-primary/80 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </TabsContent>
