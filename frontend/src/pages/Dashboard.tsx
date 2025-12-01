@@ -1,6 +1,7 @@
 import { Users, Target, TrendingUp, Clock, Plus, UserPlus, ChevronDown, Calendar, ExternalLink, BookOpen, Pin, X, MessageCircle, Edit2, Check, Save, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
@@ -680,11 +681,9 @@ const Dashboard = () => {
                 <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
                   Recent Activity
                 </TabsTrigger>
-                {experienceLevel !== 'beginner' && (
-                  <TabsTrigger value="tips" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
-                    Networking Tips
-                  </TabsTrigger>
-                )}
+                <TabsTrigger value="tips" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                  Networking Tips
+                </TabsTrigger>
               </TabsList>
               
               <TabsContent value="activity" className="p-6 space-y-4 mt-0">
@@ -715,16 +714,22 @@ const Dashboard = () => {
                 )}
               </TabsContent>
               
-              {experienceLevel !== 'beginner' && (
-                <TabsContent value="tips" className="p-6 mt-0 max-h-96 overflow-y-auto">
+              <TabsContent value="tips" className="p-6 mt-0 max-h-96 overflow-y-auto">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                    <BookOpen className="h-4 w-4" />
+                    <span>Curated networking resources from top business schools</span>
+                  </div>
+                  
+                  {/* Paid Articles Section */}
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                      <BookOpen className="h-4 w-4" />
-                      <span>Curated networking resources from top business schools</span>
-                    </div>
-                    {networkingTips.map((tip, index) => (
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <span className="text-primary">Paid Articles</span>
+                      <Badge variant="outline" className="text-xs">Premium</Badge>
+                    </h3>
+                    {networkingTips.filter(tip => tip.paid).map((tip, index) => (
                       <div 
-                        key={index} 
+                        key={`paid-${index}`} 
                         className="border rounded-lg p-4 hover:border-primary/50 hover:bg-muted/50 transition-all group"
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -747,8 +752,43 @@ const Dashboard = () => {
                       </div>
                     ))}
                   </div>
-                </TabsContent>
-              )}
+
+                  {/* Free Articles Section */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <span>Free Articles</span>
+                    </h3>
+                    {networkingTips.filter(tip => !tip.paid).length > 0 ? (
+                      networkingTips.filter(tip => !tip.paid).map((tip, index) => (
+                        <div 
+                          key={`free-${index}`} 
+                          className="border rounded-lg p-4 hover:border-primary/50 hover:bg-muted/50 transition-all group"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm mb-1 group-hover:text-primary transition-colors">
+                                {tip.title}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{tip.source}</p>
+                            </div>
+                            <a
+                              href={tip.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-shrink-0 text-primary hover:text-primary/80 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">No free articles yet. Check back soon!</p>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
