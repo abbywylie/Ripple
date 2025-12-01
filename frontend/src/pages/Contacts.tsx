@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { GmailPluginDemo } from "@/components/GmailPluginDemo";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 
 // Helper function to parse date strings as local dates to avoid timezone issues
 const parseLocalDate = (dateString: string): Date | null => {
@@ -360,12 +361,99 @@ const Contacts = () => {
         user_id: user.userId
       });
       
+      toast.success(`Contact "${contact.name}" deleted successfully`);
+      
       // Reload contacts
       const updatedContacts = await contactsApi.getContacts(user.userId);
       setContacts(updatedContacts);
-    } catch (error) {
+      
+      // Clear selection if deleted contact was selected
+      if (selectedContact?.contact_id === contact.contact_id) {
+        setSelectedContact(null);
+      }
+    } catch (error: any) {
       console.error('Failed to delete contact:', error);
+      toast.error(error.response?.data?.detail || `Failed to delete contact: ${contact.name}`);
     }
+  };
+
+  // Detect duplicate contacts
+  const detectDuplicates = (contacts: any[]): Array<{ contacts: any[], reason: string }> => {
+    const duplicates: Array<{ contacts: any[], reason: string }> = [];
+    const checked = new Set<number>();
+
+    for (let i = 0; i < contacts.length; i++) {
+      if (checked.has(contacts[i].contact_id)) continue;
+      
+      const contact1 = contacts[i];
+      const potentialDuplicates = [contact1];
+
+      for (let j = i + 1; j < contacts.length; j++) {
+        if (checked.has(contacts[j].contact_id)) continue;
+        
+        const contact2 = contacts[j];
+        let isDuplicate = false;
+        let reason = "";
+
+        // Check email match (exact)
+        if (contact1.email && contact2.email && 
+            contact1.email.toLowerCase() === contact2.email.toLowerCase()) {
+          isDuplicate = true;
+          reason = `Same email: ${contact1.email}`;
+        }
+        // Check phone match (normalized)
+        else if (contact1.phone_number && contact2.phone_number) {
+          const phone1 = contact1.phone_number.replace(/\D/g, '');
+          const phone2 = contact2.phone_number.replace(/\D/g, '');
+          if (phone1 && phone2 && phone1 === phone2) {
+            isDuplicate = true;
+            reason = `Same phone: ${contact1.phone_number}`;
+          }
+        }
+        // Check name similarity (fuzzy match)
+        if (!isDuplicate && contact1.name && contact2.name) {
+          const name1 = contact1.name.toLowerCase().trim();
+          const name2 = contact2.name.toLowerCase().trim();
+          
+          // Exact match
+          if (name1 === name2) {
+            isDuplicate = true;
+            reason = `Same name: ${contact1.name}`;
+          }
+          // Similar name + same company
+          else if (contact1.company && contact2.company && 
+                   contact1.company.toLowerCase() === contact2.company.toLowerCase()) {
+            // Check if names are similar (e.g., "John Doe" vs "John D.")
+            const name1Words = name1.split(/\s+/);
+            const name2Words = name2.split(/\s+/);
+            
+            // Check if first names match and last names are similar
+            if (name1Words.length >= 2 && name2Words.length >= 2) {
+              const firstNameMatch = name1Words[0] === name2Words[0];
+              const lastNameSimilar = name1Words[name1Words.length - 1].startsWith(name2Words[name2Words.length - 1].charAt(0)) ||
+                                     name2Words[name2Words.length - 1].startsWith(name1Words[name1Words.length - 1].charAt(0));
+              
+              if (firstNameMatch && (lastNameSimilar || name1Words[name1Words.length - 1] === name2Words[name2Words.length - 1])) {
+                isDuplicate = true;
+                reason = `Similar name at same company: "${contact1.name}" and "${contact2.name}" at ${contact1.company}`;
+              }
+            }
+          }
+        }
+
+        if (isDuplicate) {
+          potentialDuplicates.push(contact2);
+          checked.add(contact2.contact_id);
+        }
+      }
+
+      if (potentialDuplicates.length > 1) {
+        duplicates.push({ contacts: potentialDuplicates, reason });
+        potentialDuplicates.forEach(c => checked.add(c.contact_id));
+      }
+    }
+
+    return duplicates;
   };
 
   // Navigate to contact detail
@@ -1025,6 +1113,38 @@ const Contacts = () => {
                               </Badge>
                             )}
                           </div>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Contact</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete "{contact.name}"? This action cannot be undone and will remove all associated meetings, interactions, and goals.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteContact(contact);
+                                  }}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </CardContent>
                     </Card>
@@ -1086,6 +1206,31 @@ const Contacts = () => {
                     <Edit className="h-4 w-4 mr-2" />
                     Edit
                   </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" className="text-destructive hover:text-destructive">
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Contact</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete "{selectedContact.name}"? This action cannot be undone and will remove all associated meetings, interactions, and goals.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDeleteContact(selectedContact)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             </div>
