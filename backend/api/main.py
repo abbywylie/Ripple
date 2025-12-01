@@ -46,15 +46,14 @@ app = FastAPI(title="Networking API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://ripple-rose.vercel.app",
-        "http://localhost:5173",
-        "http://localhost:8080",
-        "http://localhost:3000",
-        "*"  # Fallback for development
+        "https://ripple-rose.vercel.app",  # Vercel frontend URL
+        "http://localhost:5173",  # Local development
+        "http://localhost:8080",  # Local development
+        "http://localhost:3000",  # Local development
     ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allow all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allow all headers
 )
 
 # Authentication setup
