@@ -9,7 +9,11 @@ from typing import List, Tuple, Dict, Any, Optional
 import requests
 
 # External ML recommendation API URL (set via environment variable)
-EXTERNAL_RECOMMENDATION_API_URL = os.getenv("EXTERNAL_RECOMMENDATION_API_URL", None)
+# Default to the provided recommendation service
+EXTERNAL_RECOMMENDATION_API_URL = os.getenv(
+    "EXTERNAL_RECOMMENDATION_API_URL", 
+    "https://ripple-yiue.onrender.com/api/recommendations"  # Default recommendation service
+)
 
 from models.database_functions import (
     get_session, User, select, Contact, NotFoundError
@@ -57,15 +61,28 @@ def call_external_recommendation_api(
         }
         
         print(f"[Recommendation] Calling external API: {EXTERNAL_RECOMMENDATION_API_URL}")
+        print(f"[Recommendation] Payload: user_id={user_id}, connections={len(connections_data)}")
+        
         response = requests.post(
             EXTERNAL_RECOMMENDATION_API_URL,
             json=payload,
-            timeout=10  # 10 second timeout
+            timeout=30,  # 30 second timeout for ML processing
+            headers={"Content-Type": "application/json"}
         )
         
         if response.status_code == 200:
             result = response.json()
-            # Expected format: [{"user_id": 1, "similarity_score": 0.85}, ...]
+            print(f"[Recommendation] External API response: {result}")
+            
+            # Handle different response formats
+            # Format 1: [{"user_id": 1, "similarity_score": 0.85}, ...]
+            # Format 2: {"recommendations": [{"user_id": 1, "similarity_score": 0.85}, ...]}
+            if isinstance(result, dict) and "recommendations" in result:
+                result = result["recommendations"]
+            elif not isinstance(result, list):
+                print(f"[Recommendation] Unexpected response format: {type(result)}")
+                return None
+            
             recommendations = []
             for item in result:
                 user_id_match = item.get("user_id")
@@ -76,17 +93,22 @@ def call_external_recommendation_api(
                     recommendations.append((connection, float(score)))
             
             recommendations.sort(key=lambda x: x[1], reverse=True)
-            print(f"[Recommendation] External API returned {len(recommendations)} recommendations")
+            print(f"[Recommendation] External API returned {len(recommendations)} recommendations above threshold {threshold}")
             return recommendations
         else:
             print(f"[Recommendation] External API returned status {response.status_code}: {response.text}")
             return None
             
+    except requests.exceptions.Timeout:
+        print(f"[Recommendation] External API request timed out after 30 seconds")
+        return None
     except requests.exceptions.RequestException as e:
         print(f"[Recommendation] External API request failed: {e}")
         return None
     except Exception as e:
         print(f"[Recommendation] Error processing external API response: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
