@@ -54,11 +54,19 @@ This project is organized for team collaboration with clear separation of concer
 
 ## 🛠️ Technologies
 
-- **Backend**: FastAPI, SQLAlchemy, SQLite, JWT Authentication
+- **Backend**: FastAPI, SQLAlchemy, PostgreSQL (Supabase), JWT Authentication
 - **Frontend**: React, TypeScript, Vite, Tailwind CSS, shadcn/ui
-- **Database**: SQLite with proper relationships and constraints
+- **Database**: PostgreSQL (Supabase) with proper relationships and constraints
+  - Local development: SQLite
+  - Production: Supabase PostgreSQL
 - **AI Features**: Groq, OpenAI integration for RAG assistant
 - **Email Parsing**: Intelligent email thread extraction
+
+## 🗄️ Database Migration
+
+**Migrating to Supabase?** See:
+- [SUPABASE_QUICK_START.md](./SUPABASE_QUICK_START.md) - Quick 30-minute migration guide
+- [SUPABASE_MIGRATION.md](./SUPABASE_MIGRATION.md) - Detailed migration documentation
 
 ## 📋 Features
 

@@ -226,12 +226,23 @@ class PublicProfile(Base):
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{Path(__file__).parent / 'networking.db'}")
 
 # Create engine with connection pool settings that help with schema changes
+# Connection pool settings optimized for Supabase
+# Supabase free tier: max 60 direct connections, 200 via pooler
+# Use connection pooler URL for better performance: postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
+connect_args = {}
+if "supabase" in DATABASE_URL.lower():
+    # Supabase requires SSL connections
+    connect_args["sslmode"] = "require"
+
 engine = create_engine(
     DATABASE_URL, 
     echo=False, 
     future=True,
     pool_pre_ping=True,  # Verify connections before using them
     pool_recycle=300,     # Recycle connections after 5 minutes
+    pool_size=5,          # Supabase-optimized: smaller pool for free tier
+    max_overflow=10,      # Allow some overflow connections
+    connect_args=connect_args
 )
 
 # Ensure SQLite enforces foreign keys (SQLite off by default)
