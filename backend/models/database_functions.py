@@ -270,29 +270,36 @@ if "supabase" in DATABASE_URL.lower():
     connect_args["sslmode"] = "require"
     print("✅ Detected Supabase database - SSL mode enabled")
 
-# Create engine with error handling
-try:
-    engine = create_engine(
-        DATABASE_URL, 
-        echo=False, 
-        future=True,
-        pool_pre_ping=True,  # Verify connections before using them
-        pool_recycle=300,     # Recycle connections after 5 minutes
-        pool_size=5,          # Supabase-optimized: smaller pool for free tier
-        max_overflow=10,      # Allow some overflow connections
-        connect_args=connect_args
-    )
-    print(f"✅ Database engine created successfully")
-    if "supabase" in DATABASE_URL.lower():
-        print(f"   Connected to: Supabase PostgreSQL")
-    elif "postgresql" in DATABASE_URL.lower():
-        print(f"   Connected to: PostgreSQL")
-    else:
-        print(f"   Connected to: SQLite (local development)")
-except Exception as e:
-    print(f"❌ Failed to create database engine: {e}")
-    print(f"   DATABASE_URL: {DATABASE_URL[:50]}..." if len(DATABASE_URL) > 50 else f"   DATABASE_URL: {DATABASE_URL}")
-    raise
+# Create engine (connection is lazy - won't connect until first use)
+# This allows the app to start even if database is temporarily unreachable
+# For Supabase, we may need to force IPv4 or use connection pooler
+connect_args_final = connect_args.copy()
+if "supabase" in DATABASE_URL.lower():
+    # Force IPv4 connection (Render may have IPv6 issues)
+    # Supabase connection pooler is recommended for better reliability
+    connect_args_final["connect_timeout"] = 10  # 10 second timeout
+
+engine = create_engine(
+    DATABASE_URL, 
+    echo=False, 
+    future=True,
+    pool_pre_ping=True,  # Verify connections before using them
+    pool_recycle=300,     # Recycle connections after 5 minutes
+    pool_size=5,          # Supabase-optimized: smaller pool for free tier
+    max_overflow=10,      # Allow some overflow connections
+    connect_args=connect_args_final,
+    pool_reset_on_return='commit'  # Reset connections properly
+)
+print(f"✅ Database engine configured")
+if "supabase" in DATABASE_URL.lower():
+    print(f"   Target: Supabase PostgreSQL")
+    print(f"   Note: Connection will be established on first database operation")
+    print(f"   💡 Tip: If connection fails, try using Supabase connection pooler URL")
+elif "postgresql" in DATABASE_URL.lower():
+    print(f"   Target: PostgreSQL")
+    print(f"   Note: Connection will be established on first database operation")
+else:
+    print(f"   Target: SQLite (local development)")
 
 # Ensure SQLite enforces foreign keys (SQLite off by default)
 # PostgreSQL has foreign keys enabled by default, so only run PRAGMA for SQLite
@@ -316,7 +323,9 @@ def _wal_on_connect(dbapi_connection, connection_record):
         except Exception:
             pass
 
-Base.metadata.create_all(engine)
+# Don't create tables on import - let them be created lazily or via migration
+# This prevents connection errors during module import
+# Base.metadata.create_all(engine)  # Commented out - tables should already exist in Supabase
 
 # Auto-migrate: Add relationship tracking columns if they don't exist
 def _ensure_relationship_tracking_columns():
