@@ -266,9 +266,10 @@ elif error_msg:  # Warning but valid
 # Use connection pooler URL for better performance: postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
 connect_args = {}
 if "supabase" in DATABASE_URL.lower():
-    # Supabase requires SSL connections
-    connect_args["sslmode"] = "require"
-    print("✅ Detected Supabase database - SSL mode enabled")
+    # Try 'prefer' first - will use SSL if available, but won't fail if not
+    # If connection still fails, try changing to 'require' or 'disable'
+    connect_args["sslmode"] = "prefer"  # Changed from 'require' to 'prefer' for better compatibility
+    print("✅ Detected Supabase database - SSL mode: prefer (will use SSL if available)")
 
 # Create engine (connection is lazy - won't connect until first use)
 # This allows the app to start even if database is temporarily unreachable
