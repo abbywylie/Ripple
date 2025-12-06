@@ -57,7 +57,7 @@ app.add_middleware(
 )
 
 # Authentication setup
-SECRET_KEY = "supersecretkey"  # change this in production!
+SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")  # Set SECRET_KEY environment variable in production!
 ALGORITHM = "HS256"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/login")
 
