@@ -51,6 +51,10 @@ Once deployed, your backend will be connected to Supabase.
 - ✅ `DATABASE_URL` = `postgresql://postgres:ByteMe2025!@db.obbfpbzrtpicmaecenxs.supabase.co:5432/postgres`
 - ✅ `SECRET_KEY` = `31CDeMa1NtRKTjqN1gIdPbCMjOKwAfPOjbadKc-M1r8`
 
+**Supabase Keys (Saved for Reference):**
+- ✅ Anon/Public Key: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9iYmZwYnpydHBpY21hZWNlbnhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5NzcyMzMsImV4cCI6MjA4MDU1MzIzM30.mr3LkBh1gY1NXBXDND7ROxhPZqMLKxpiqP6iTov0-js`
+  - Note: Not needed for current setup (saved for future Supabase Auth migration)
+
 **No changes needed:**
 - Frontend (Vercel) - already configured correctly
 
