@@ -444,11 +444,13 @@ def test_database_connection():
         print(f"   Please check your DATABASE_URL environment variable")
         return False
 
-# Run connection test on import (but don't fail if it doesn't work in all contexts)
-try:
-    test_database_connection()
-except Exception as e:
-    print(f"Warning: Could not test database connection on startup: {e}")
+# Don't run connection test on import - it will block startup if network is unreachable
+# Connection will be tested on first actual database operation
+# Uncomment below if you want to test on startup (may cause issues if network is down):
+# try:
+#     test_database_connection()
+# except Exception as e:
+#     print(f"Warning: Could not test database connection on startup: {e}")
 
 # Session factory
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
