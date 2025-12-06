@@ -266,12 +266,16 @@ elif error_msg:  # Warning but valid
 # Use connection pooler URL for better performance: postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
 connect_args = {}
 if "supabase" in DATABASE_URL.lower():
-    # Check for SSL certificate file
+    # Check for SSL certificate file (looks for prod-supabase.cer first, then other common names)
     cert_paths = [
+        os.path.join(Path(__file__).parent.parent, "prod-supabase.cer"),  # backend/prod-supabase.cer
+        os.path.join(Path(__file__).parent.parent.parent, "prod-supabase.cer"),  # Ripple/prod-supabase.cer
         os.path.join(Path(__file__).parent.parent, "supabase.crt"),  # backend/supabase.crt
         os.path.join(Path(__file__).parent.parent.parent, "supabase.crt"),  # Ripple/supabase.crt
         os.path.join(Path(__file__).parent.parent, "supabase.pem"),  # backend/supabase.pem
         os.path.join(Path(__file__).parent.parent.parent, "supabase.pem"),  # Ripple/supabase.pem
+        os.path.join(Path(__file__).parent.parent, "supabase.cer"),  # backend/supabase.cer
+        os.path.join(Path(__file__).parent.parent.parent, "supabase.cer"),  # Ripple/supabase.cer
     ]
     
     cert_file = None
@@ -283,16 +287,17 @@ if "supabase" in DATABASE_URL.lower():
     if cert_file:
         # Use custom certificate file
         connect_args["sslmode"] = "require"
-        connect_args["sslcert"] = cert_file
-        connect_args["sslkey"] = cert_file  # Some setups use same file for both
-        connect_args["sslrootcert"] = cert_file  # Root CA certificate
+        # For .cer files, typically used as root certificate
+        connect_args["sslrootcert"] = cert_file
+        # Some setups may need client cert/key, but .cer is usually just root CA
         print(f"✅ Detected Supabase database - Using SSL certificate: {cert_file}")
+        print(f"   Certificate type: Root CA certificate (.cer)")
     else:
         # Try 'prefer' first - will use SSL if available, but won't fail if not
         # If connection still fails, try changing to 'require' or 'disable'
         connect_args["sslmode"] = "prefer"  # Changed from 'require' to 'prefer' for better compatibility
         print("✅ Detected Supabase database - SSL mode: prefer (will use SSL if available)")
-        print("   💡 Tip: Place SSL certificate as 'supabase.crt' or 'supabase.pem' in backend/ or root folder to use custom cert")
+        print("   💡 Tip: Place SSL certificate as 'prod-supabase.cer' in backend/ or root folder to use custom cert")
 
 # Create engine (connection is lazy - won't connect until first use)
 # This allows the app to start even if database is temporarily unreachable
