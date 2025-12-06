@@ -225,6 +225,41 @@ class PublicProfile(Base):
 # Use environment variable for database URL, fallback to SQLite for local development
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{Path(__file__).parent / 'networking.db'}")
 
+# Validate DATABASE_URL format
+def validate_database_url(url: str) -> tuple[bool, str]:
+    """Validate database URL format and return (is_valid, error_message)."""
+    if not url:
+        return False, "DATABASE_URL environment variable is not set"
+    
+    # Check for common mistakes
+    if url.startswith("https://"):
+        return False, "DATABASE_URL should start with 'postgresql://' or 'sqlite://', not 'https://'. Did you copy the Supabase API URL instead of the connection string?"
+    
+    if url.startswith("http://"):
+        return False, "DATABASE_URL should start with 'postgresql://' or 'sqlite://', not 'http://'"
+    
+    # For PostgreSQL, ensure it starts with postgresql://
+    if "postgres" in url.lower() and not url.startswith("postgresql://"):
+        if url.startswith("postgres://"):
+            # PostgreSQL accepts both postgres:// and postgresql://, but SQLAlchemy prefers postgresql://
+            url = url.replace("postgres://", "postgresql://", 1)
+            return True, f"Converted postgres:// to postgresql://"
+        else:
+            return False, "PostgreSQL DATABASE_URL should start with 'postgresql://'"
+    
+    return True, ""
+
+# Validate the URL
+is_valid, error_msg = validate_database_url(DATABASE_URL)
+if not is_valid:
+    print(f"❌ DATABASE_URL Validation Error: {error_msg}")
+    print(f"   Current DATABASE_URL: {DATABASE_URL[:50]}..." if len(DATABASE_URL) > 50 else f"   Current DATABASE_URL: {DATABASE_URL}")
+    if "https://" in DATABASE_URL or "http://" in DATABASE_URL:
+        print("   💡 Tip: Get the connection string from Supabase Dashboard → Settings → Database → Connection string → URI")
+    raise ValueError(f"Invalid DATABASE_URL: {error_msg}")
+elif error_msg:  # Warning but valid
+    print(f"⚠️  DATABASE_URL: {error_msg}")
+
 # Create engine with connection pool settings that help with schema changes
 # Connection pool settings optimized for Supabase
 # Supabase free tier: max 60 direct connections, 200 via pooler
@@ -233,17 +268,31 @@ connect_args = {}
 if "supabase" in DATABASE_URL.lower():
     # Supabase requires SSL connections
     connect_args["sslmode"] = "require"
+    print("✅ Detected Supabase database - SSL mode enabled")
 
-engine = create_engine(
-    DATABASE_URL, 
-    echo=False, 
-    future=True,
-    pool_pre_ping=True,  # Verify connections before using them
-    pool_recycle=300,     # Recycle connections after 5 minutes
-    pool_size=5,          # Supabase-optimized: smaller pool for free tier
-    max_overflow=10,      # Allow some overflow connections
-    connect_args=connect_args
-)
+# Create engine with error handling
+try:
+    engine = create_engine(
+        DATABASE_URL, 
+        echo=False, 
+        future=True,
+        pool_pre_ping=True,  # Verify connections before using them
+        pool_recycle=300,     # Recycle connections after 5 minutes
+        pool_size=5,          # Supabase-optimized: smaller pool for free tier
+        max_overflow=10,      # Allow some overflow connections
+        connect_args=connect_args
+    )
+    print(f"✅ Database engine created successfully")
+    if "supabase" in DATABASE_URL.lower():
+        print(f"   Connected to: Supabase PostgreSQL")
+    elif "postgresql" in DATABASE_URL.lower():
+        print(f"   Connected to: PostgreSQL")
+    else:
+        print(f"   Connected to: SQLite (local development)")
+except Exception as e:
+    print(f"❌ Failed to create database engine: {e}")
+    print(f"   DATABASE_URL: {DATABASE_URL[:50]}..." if len(DATABASE_URL) > 50 else f"   DATABASE_URL: {DATABASE_URL}")
+    raise
 
 # Ensure SQLite enforces foreign keys (SQLite off by default)
 # PostgreSQL has foreign keys enabled by default, so only run PRAGMA for SQLite
@@ -358,6 +407,35 @@ try:
     _ensure_has_public_profile_column()
 except Exception as e:
     print(f"Warning: Auto-migration check failed: {e}")
+
+# Test database connection on startup
+def test_database_connection():
+    """Test database connection and print status."""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT 1"))
+            test_value = result.scalar()
+            if test_value == 1:
+                db_type = "SQLite" if "sqlite" in DATABASE_URL.lower() else "PostgreSQL"
+                is_supabase = "supabase" in DATABASE_URL.lower()
+                print(f"✅ Database connection test successful")
+                print(f"   Type: {db_type}")
+                if is_supabase:
+                    print(f"   Provider: Supabase")
+                return True
+            else:
+                print(f"⚠️  Database connection test returned unexpected value: {test_value}")
+                return False
+    except Exception as e:
+        print(f"❌ Database connection test failed: {e}")
+        print(f"   Please check your DATABASE_URL environment variable")
+        return False
+
+# Run connection test on import (but don't fail if it doesn't work in all contexts)
+try:
+    test_database_connection()
+except Exception as e:
+    print(f"Warning: Could not test database connection on startup: {e}")
 
 # Session factory
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

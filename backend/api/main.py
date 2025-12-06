@@ -16,7 +16,8 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from services.service_api import create_user, update_user_service, create_contact, update_contact_service, delete_contact_service, create_meeting, update_meeting_service, delete_meeting_service, get_upcoming_meetings_service, get_meetings_for_date_service, get_user_by_email, list_contacts_for_user, list_meetings_for_contact, list_meetings_for_user, get_upcoming_follow_ups_for_user, get_goals_for_user, create_goal, update_goal_service, delete_goal_service, get_goal_steps, create_goal_step, update_goal_step_service, delete_goal_step_service, get_interactions_for_contact, get_interactions_for_user, create_interaction, update_interaction_service, delete_interaction_service, get_overdue_follow_ups_for_user, get_upcoming_follow_ups_interactions_for_user, get_platform_stats, create_or_update_public_profile_service, get_public_profiles_service, get_public_profile_by_user_id_service, delete_public_profile_service
-from models.database_functions import AlreadyExistsError, NotFoundError, get_session, User
+from models.database_functions import AlreadyExistsError, NotFoundError, get_session, User, engine, DATABASE_URL
+from sqlalchemy import text
 
 # Import optional services - don't break app if they fail
 try:
@@ -990,6 +991,97 @@ def get_recommendations_endpoint(
         raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get recommendations: {str(e)}")
+
+
+# =====================================================
+# Database Connection Test Endpoint
+# =====================================================
+@app.get("/test-db", response_model=dict)
+def test_database_connection():
+    """
+    Test endpoint to verify Supabase database connection.
+    Returns database connection status and sample data.
+    """
+    try:
+        # Test 1: Basic connection
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT 1 as test"))
+            test_value = result.scalar()
+            
+            if test_value != 1:
+                raise Exception("Database query returned unexpected result")
+        
+        # Test 2: Get database info
+        db_info = {
+            "connection_status": "✅ Connected",
+            "database_type": "SQLite" if "sqlite" in DATABASE_URL.lower() else "PostgreSQL",
+            "is_supabase": "supabase" in DATABASE_URL.lower(),
+            "url_preview": DATABASE_URL.split("@")[-1] if "@" in DATABASE_URL else "local",
+        }
+        
+        # Test 3: Try to query public_profiles table
+        try:
+            with get_session() as session:
+                from models.database_functions import PublicProfile
+                profile_count = session.query(PublicProfile).count()
+                db_info["public_profiles_count"] = profile_count
+                db_info["public_profiles_test"] = "✅ Table accessible"
+        except Exception as table_error:
+            db_info["public_profiles_test"] = f"⚠️ Table error: {str(table_error)}"
+            db_info["public_profiles_count"] = None
+        
+        # Test 4: Try to query users table
+        try:
+            with get_session() as session:
+                user_count = session.query(User).count()
+                db_info["users_count"] = user_count
+                db_info["users_test"] = "✅ Table accessible"
+        except Exception as table_error:
+            db_info["users_test"] = f"⚠️ Table error: {str(table_error)}"
+            db_info["users_count"] = None
+        
+        # Test 5: Get a sample public profile
+        try:
+            with get_session() as session:
+                from models.database_functions import PublicProfile
+                sample_profile = session.query(PublicProfile).filter(
+                    PublicProfile.visibility == True
+                ).first()
+                
+                if sample_profile:
+                    db_info["sample_profile"] = {
+                        "profile_id": sample_profile.profile_id,
+                        "display_name": sample_profile.display_name,
+                        "school": sample_profile.school,
+                        "role": sample_profile.role,
+                        "visibility": sample_profile.visibility,
+                    }
+                    db_info["sample_data_test"] = "✅ Sample data retrieved"
+                else:
+                    db_info["sample_data_test"] = "ℹ️ No public profiles found (table exists but empty)"
+                    db_info["sample_profile"] = None
+        except Exception as sample_error:
+            db_info["sample_data_test"] = f"⚠️ Error retrieving sample: {str(sample_error)}"
+            db_info["sample_profile"] = None
+        
+        return {
+            "status": "success",
+            "message": "Database connection test successful",
+            "database": db_info,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Database connection test failed: {str(e)}",
+            "database": {
+                "connection_status": "❌ Failed",
+                "error": str(e),
+                "url_preview": DATABASE_URL.split("@")[-1] if "@" in DATABASE_URL else "local",
+            },
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
 
 
 # Serve the built frontend (the Vite build output) - MUST be after all API routes
