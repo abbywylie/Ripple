@@ -372,11 +372,13 @@ def _ensure_relationship_tracking_columns():
     except Exception as e:
         print(f"Warning: Could not auto-migrate relationship tracking columns: {e}")
 
-# Run migration on import
-try:
-    _ensure_relationship_tracking_columns()
-except Exception as e:
-    print(f"Warning: Relationship tracking migration check failed: {e}")
+# Don't run migration on import - it will try to connect immediately
+# Migrations will run on first database operation if needed
+# Uncomment below if you want to run migrations on startup (may cause issues if network is down):
+# try:
+#     _ensure_relationship_tracking_columns()
+# except Exception as e:
+#     print(f"Warning: Relationship tracking migration check failed: {e}")
 
 # Auto-migrate: Add has_public_profile column if it doesn't exist
 def _ensure_has_public_profile_column():
@@ -410,12 +412,14 @@ def _ensure_has_public_profile_column():
         # Don't fail startup if migration fails - just log it
         print(f"Warning: Could not auto-migrate has_public_profile column: {e}")
 
-# Run migration on import
-try:
-    from sqlalchemy import text
-    _ensure_has_public_profile_column()
-except Exception as e:
-    print(f"Warning: Auto-migration check failed: {e}")
+# Don't run migration on import - it will try to connect immediately
+# Migrations will run on first database operation if needed
+# Uncomment below if you want to run migrations on startup (may cause issues if network is down):
+# try:
+#     from sqlalchemy import text
+#     _ensure_has_public_profile_column()
+# except Exception as e:
+#     print(f"Warning: Auto-migration check failed: {e}")
 
 # Test database connection on startup
 def test_database_connection():
