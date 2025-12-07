@@ -2,7 +2,9 @@ import { Bell, Clock, Calendar, AlertCircle, Plus, CheckCircle, User, Edit } fro
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSettings } from "@/contexts/SettingsContext";
 import { followUpsApi, contactsApi } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -25,6 +27,7 @@ const parseLocalDate = (dateString: string): Date | null => {
 
 const Reminders = () => {
   const { user } = useAuth();
+  const { tooltipsEnabled } = useSettings();
   const navigate = useNavigate();
   const [reminders, setReminders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -209,55 +212,105 @@ const Reminders = () => {
       )}
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="glass-card border-border/50">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-destructive/20 flex items-center justify-center">
-              <AlertCircle className="h-5 w-5 text-destructive" />
-            </div>
-            <div>
-              <div className="text-xl font-bold">{loading ? "..." : highPriorityCount}</div>
-              <div className="text-xs text-muted-foreground">High Priority</div>
-            </div>
-          </CardContent>
-        </Card>
+      <TooltipProvider>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Tooltip delayDuration={tooltipsEnabled ? 300 : 999999}>
+            <TooltipTrigger asChild>
+              <Card className="glass-card border-border/50 cursor-help">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-destructive/20 flex items-center justify-center">
+                    <AlertCircle className="h-5 w-5 text-destructive" />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold">{loading ? "..." : highPriorityCount}</div>
+                    <div className="text-xs text-muted-foreground">High Priority</div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            {tooltipsEnabled && (
+              <TooltipContent>
+                <p className="font-semibold mb-1">High Priority Reminders</p>
+                <p className="text-xs max-w-xs">
+                  Follow-ups that are due within 1 day. These are urgent and should be addressed immediately to maintain strong relationships.
+                </p>
+              </TooltipContent>
+            )}
+          </Tooltip>
 
-        <Card className="glass-card border-border/50">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
-              <Clock className="h-5 w-5 text-accent" />
-            </div>
-            <div>
-              <div className="text-xl font-bold">{loading ? "..." : mediumPriorityCount}</div>
-              <div className="text-xs text-muted-foreground">Medium Priority</div>
-            </div>
-          </CardContent>
-        </Card>
+          <Tooltip delayDuration={tooltipsEnabled ? 300 : 999999}>
+            <TooltipTrigger asChild>
+              <Card className="glass-card border-border/50 cursor-help">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-accent" />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold">{loading ? "..." : mediumPriorityCount}</div>
+                    <div className="text-xs text-muted-foreground">Medium Priority</div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            {tooltipsEnabled && (
+              <TooltipContent>
+                <p className="font-semibold mb-1">Medium Priority Reminders</p>
+                <p className="text-xs max-w-xs">
+                  Follow-ups due within 2-3 days. Important but not urgent. Plan to address these soon to stay on top of your networking.
+                </p>
+              </TooltipContent>
+            )}
+          </Tooltip>
 
-        <Card className="glass-card border-border/50">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-              <Bell className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <div className="text-xl font-bold">{loading ? "..." : thisWeekCount}</div>
-              <div className="text-xs text-muted-foreground">This Week</div>
-            </div>
-          </CardContent>
-        </Card>
+          <Tooltip delayDuration={tooltipsEnabled ? 300 : 999999}>
+            <TooltipTrigger asChild>
+              <Card className="glass-card border-border/50 cursor-help">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Bell className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold">{loading ? "..." : thisWeekCount}</div>
+                    <div className="text-xs text-muted-foreground">This Week</div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            {tooltipsEnabled && (
+              <TooltipContent>
+                <p className="font-semibold mb-1">This Week</p>
+                <p className="text-xs max-w-xs">
+                  Total number of follow-ups scheduled for the next 7 days. Helps you plan your weekly networking outreach.
+                </p>
+              </TooltipContent>
+            )}
+          </Tooltip>
 
-        <Card className="glass-card border-border/50">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-              <Calendar className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <div className="text-xl font-bold">{loading ? "..." : reminders.length}</div>
-              <div className="text-xs text-muted-foreground">Total Upcoming</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <Tooltip delayDuration={tooltipsEnabled ? 300 : 999999}>
+            <TooltipTrigger asChild>
+              <Card className="glass-card border-border/50 cursor-help">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Calendar className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold">{loading ? "..." : reminders.length}</div>
+                    <div className="text-xs text-muted-foreground">Total Upcoming</div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            {tooltipsEnabled && (
+              <TooltipContent>
+                <p className="font-semibold mb-1">Total Upcoming</p>
+                <p className="text-xs max-w-xs">
+                  All follow-up reminders scheduled for the next 30 days. This gives you a complete view of your upcoming networking commitments.
+                </p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </div>
+      </TooltipProvider>
 
       {/* Timeline */}
       <div className="space-y-4">

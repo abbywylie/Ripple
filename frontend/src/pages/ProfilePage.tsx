@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
-import { LogOut, Mail, User, BookOpen, Moon, Zap, Battery, Edit, Save, X, Briefcase, GraduationCap, TrendingUp, Sparkles, Globe, Eye, EyeOff, Linkedin, Hash } from 'lucide-react';
+import { LogOut, Mail, User, BookOpen, Moon, Zap, Battery, Edit, Save, X, Briefcase, GraduationCap, TrendingUp, Sparkles, Globe, Eye, EyeOff, Linkedin, Hash, HelpCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link } from 'react-router-dom';
 import { resetTour } from '@/components/OnboardingTour';
@@ -17,7 +17,7 @@ import { authApi, publicProfilesApi } from '@/lib/api';
 
 const ProfilePage = () => {
   const { user, logout } = useAuth();
-  const { darkMode, animationsEnabled, efficientLoading, setDarkMode, setAnimationsEnabled, setEfficientLoading } = useSettings();
+  const { darkMode, animationsEnabled, efficientLoading, tooltipsEnabled, setDarkMode, setAnimationsEnabled, setEfficientLoading, setTooltipsEnabled } = useSettings();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [editedCompanyOrSchool, setEditedCompanyOrSchool] = useState('');
@@ -712,6 +712,26 @@ const ProfilePage = () => {
                   id="efficient-loading"
                   checked={efficientLoading}
                   onCheckedChange={setEfficientLoading}
+                />
+              </div>
+
+              {/* Tooltips */}
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                <div className="flex items-center gap-3">
+                  <HelpCircle className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <Label htmlFor="tooltips" className="font-medium cursor-pointer">
+                      Show Tooltips
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Display helpful tooltips when hovering over metrics
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="tooltips"
+                  checked={tooltipsEnabled}
+                  onCheckedChange={setTooltipsEnabled}
                 />
               </div>
             </div>

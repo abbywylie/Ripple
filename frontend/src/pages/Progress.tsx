@@ -1,12 +1,15 @@
 import { TrendingUp, Users, Target, Calendar, BarChart3, Activity } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSettings } from "@/contexts/SettingsContext";
 import { contactsApi, meetingsApi, goalsApi } from "@/lib/api";
 import { useEffect, useState } from "react";
 
 const ProgressPage = () => {
   const { user } = useAuth();
+  const { tooltipsEnabled } = useSettings();
   const [loading, setLoading] = useState(true);
   const [contacts, setContacts] = useState<any[]>([]);
   const [meetings, setMeetings] = useState<any[]>([]);
@@ -143,80 +146,133 @@ const ProgressPage = () => {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="glass-card border-border/50">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <Users className="h-8 w-8 text-primary" />
-              <TrendingUp className="h-5 w-5 text-accent" />
-            </div>
-            <div className="text-3xl font-bold mb-1">
-              {loading ? "..." : totalContacts}
-            </div>
-            <div className="text-sm text-muted-foreground">Total Contacts</div>
-            <div className="text-xs text-accent mt-2">
-              {loading ? "..." : `+${thisMonthContacts} this month`}
-            </div>
-          </CardContent>
-        </Card>
+      <TooltipProvider>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Tooltip delayDuration={tooltipsEnabled ? 300 : 999999}>
+            <TooltipTrigger asChild>
+              <Card className="glass-card border-border/50 cursor-help">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <Users className="h-8 w-8 text-primary" />
+                    <TrendingUp className="h-5 w-5 text-accent" />
+                  </div>
+                  <div className="text-3xl font-bold mb-1">
+                    {loading ? "..." : totalContacts}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Total Contacts</div>
+                  <div className="text-xs text-accent mt-2">
+                    {loading ? "..." : `+${thisMonthContacts} this month`}
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            {tooltipsEnabled && (
+              <TooltipContent className="max-w-xs">
+                <p className="font-semibold mb-1">Total Contacts</p>
+                <p className="text-xs">
+                  The total number of contacts in your network. Shows growth with the monthly addition count below.
+                </p>
+              </TooltipContent>
+            )}
+          </Tooltip>
 
-        <Card className="glass-card border-border/50">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <Activity className="h-8 w-8 text-accent" />
-              <TrendingUp className="h-5 w-5 text-accent" />
-            </div>
-            <div className="text-3xl font-bold mb-1">
-              {loading ? "..." : totalInteractions}
-            </div>
-            <div className="text-sm text-muted-foreground">Total Interactions</div>
-            <div className="text-xs text-accent mt-2">
-              {loading ? "..." : `+${thisMonthMeetings} this month`}
-            </div>
-          </CardContent>
-        </Card>
+          <Tooltip delayDuration={tooltipsEnabled ? 300 : 999999}>
+            <TooltipTrigger asChild>
+              <Card className="glass-card border-border/50 cursor-help">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <Activity className="h-8 w-8 text-accent" />
+                    <TrendingUp className="h-5 w-5 text-accent" />
+                  </div>
+                  <div className="text-3xl font-bold mb-1">
+                    {loading ? "..." : totalInteractions}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Total Interactions</div>
+                  <div className="text-xs text-accent mt-2">
+                    {loading ? "..." : `+${thisMonthMeetings} this month`}
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            {tooltipsEnabled && (
+              <TooltipContent className="max-w-xs">
+                <p className="font-semibold mb-1">Total Interactions</p>
+                <p className="text-xs">
+                  Total number of meetings and interactions you've logged. Includes coffee chats, interviews, and networking events.
+                </p>
+              </TooltipContent>
+            )}
+          </Tooltip>
 
-        <Card className="glass-card border-border/50">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <Target className="h-8 w-8 text-primary" />
-            </div>
-            <div className="text-3xl font-bold mb-1">
-              {loading ? "..." : `${averageGoalCompletion}%`}
-            </div>
-            <div className="text-sm text-muted-foreground">Goal Completion</div>
-            <div className="text-xs text-accent mt-2">
-              {loading ? "..." : `${goals.filter(g => g.status === 'In Progress').length} active goals`}
-            </div>
-          </CardContent>
-        </Card>
+          <Tooltip delayDuration={tooltipsEnabled ? 300 : 999999}>
+            <TooltipTrigger asChild>
+              <Card className="glass-card border-border/50 cursor-help">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <Target className="h-8 w-8 text-primary" />
+                  </div>
+                  <div className="text-3xl font-bold mb-1">
+                    {loading ? "..." : `${averageGoalCompletion}%`}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Goal Completion</div>
+                  <div className="text-xs text-accent mt-2">
+                    {loading ? "..." : `${goals.filter(g => g.status === 'In Progress').length} active goals`}
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            {tooltipsEnabled && (
+              <TooltipContent className="max-w-xs">
+                <p className="font-semibold mb-1">Goal Completion</p>
+                <p className="text-xs">
+                  Average completion percentage across all your goals. Calculated based on completed steps within each goal.
+                </p>
+              </TooltipContent>
+            )}
+          </Tooltip>
 
-        <Card className="glass-card border-border/50">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <Calendar className="h-8 w-8 text-accent" />
-            </div>
-            <div className="text-3xl font-bold mb-1">
-              {loading ? "..." : avgInteractionsPerWeek.toFixed(1)}
-            </div>
-            <div className="text-sm text-muted-foreground">Avg Interactions/Week</div>
-            <div className="text-xs text-primary mt-2">
-              {loading ? "..." : "Last 30 days"}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <Tooltip delayDuration={tooltipsEnabled ? 300 : 999999}>
+            <TooltipTrigger asChild>
+              <Card className="glass-card border-border/50 cursor-help">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <Calendar className="h-8 w-8 text-accent" />
+                  </div>
+                  <div className="text-3xl font-bold mb-1">
+                    {loading ? "..." : avgInteractionsPerWeek.toFixed(1)}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Avg Interactions/Week</div>
+                  <div className="text-xs text-primary mt-2">
+                    {loading ? "..." : "Last 30 days"}
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            {tooltipsEnabled && (
+              <TooltipContent className="max-w-xs">
+                <p className="font-semibold mb-1">Average Interactions Per Week</p>
+                <p className="text-xs">
+                  Calculated from your interactions over the last 30 days. Helps you track your networking activity and consistency.
+                </p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </div>
+      </TooltipProvider>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Monthly Growth Chart */}
-        <Card className="glass-card border-border/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-primary" />
-              Monthly Growth
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+      <TooltipProvider>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Monthly Growth Chart */}
+          <Tooltip delayDuration={tooltipsEnabled ? 300 : 999999}>
+            <TooltipTrigger asChild>
+              <Card className="glass-card border-border/50 cursor-help">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-primary" />
+                    Monthly Growth
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
             <div className="space-y-4">
               {loading ? (
                 <div className="text-center py-4 text-muted-foreground">Loading...</div>
@@ -247,15 +303,26 @@ const ProgressPage = () => {
             </div>
           </CardContent>
         </Card>
+        {tooltipsEnabled && (
+          <TooltipContent>
+            <p className="font-semibold mb-1">Monthly Growth</p>
+            <p className="text-xs max-w-xs">
+              Tracks your networking activity for the current month. Shows both new contacts added and interactions scheduled.
+            </p>
+          </TooltipContent>
+        )}
+      </Tooltip>
 
-        {/* Category Breakdown */}
-        <Card className="glass-card border-border/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              Category Breakdown
-            </CardTitle>
-          </CardHeader>
+      {/* Category Breakdown */}
+      <Tooltip delayDuration={tooltipsEnabled ? 300 : 999999}>
+        <TooltipTrigger asChild>
+          <Card className="glass-card border-border/50 cursor-help">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                Category Breakdown
+              </CardTitle>
+            </CardHeader>
           <CardContent className="space-y-6">
             {loading ? (
               <div className="text-center py-4 text-muted-foreground">Loading...</div>
@@ -276,16 +343,29 @@ const ProgressPage = () => {
             )}
           </CardContent>
         </Card>
-      </div>
+        {tooltipsEnabled && (
+          <TooltipContent>
+            <p className="font-semibold mb-1">Category Breakdown</p>
+            <p className="text-xs max-w-xs">
+              Distribution of your contacts by category (Professional, Personal, Academic, etc.). Shows the percentage of your network in each category.
+            </p>
+          </TooltipContent>
+        )}
+      </Tooltip>
+        </div>
+      </TooltipProvider>
 
       {/* Relationship Strength */}
-      <Card className="glass-card border-border/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-accent" />
-            Top Relationship Strength
-          </CardTitle>
-        </CardHeader>
+      <TooltipProvider>
+        <Tooltip delayDuration={tooltipsEnabled ? 300 : 999999}>
+          <TooltipTrigger asChild>
+            <Card className="glass-card border-border/50 cursor-help">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-accent" />
+                  Top Relationship Strength
+                </CardTitle>
+              </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {loading ? (
@@ -314,45 +394,93 @@ const ProgressPage = () => {
           </div>
         </CardContent>
       </Card>
+      {tooltipsEnabled && (
+        <TooltipContent>
+          <p className="font-semibold mb-1">Top Relationship Strength</p>
+          <p className="text-xs max-w-xs">
+            Shows your strongest relationships based on meeting frequency. Higher strength indicates more regular interactions with that contact.
+          </p>
+        </TooltipContent>
+      )}
+    </Tooltip>
+      </TooltipProvider>
 
       {/* Engagement Insights */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="glass-card border-border/50">
-          <CardContent className="p-6">
-            <div className="text-sm text-muted-foreground mb-2">Most Active Category</div>
-            <div className="text-2xl font-bold text-primary">
-              {loading ? "..." : categoryBreakdownArray.length > 0 ? categoryBreakdownArray[0].category : "None"}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {loading ? "..." : categoryBreakdownArray.length > 0 ? `${categoryBreakdownArray[0].percentage}% of network` : "No data"}
-            </div>
-          </CardContent>
-        </Card>
+      <TooltipProvider>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Tooltip delayDuration={tooltipsEnabled ? 300 : 999999}>
+            <TooltipTrigger asChild>
+              <Card className="glass-card border-border/50 cursor-help">
+                <CardContent className="p-6">
+                  <div className="text-sm text-muted-foreground mb-2">Most Active Category</div>
+                  <div className="text-2xl font-bold text-primary">
+                    {loading ? "..." : categoryBreakdownArray.length > 0 ? categoryBreakdownArray[0].category : "None"}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {loading ? "..." : categoryBreakdownArray.length > 0 ? `${categoryBreakdownArray[0].percentage}% of network` : "No data"}
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            {tooltipsEnabled && (
+              <TooltipContent>
+                <p className="font-semibold mb-1">Most Active Category</p>
+                <p className="text-xs max-w-xs">
+                  The category with the most contacts in your network. Helps you understand where your networking focus lies.
+                </p>
+              </TooltipContent>
+            )}
+          </Tooltip>
 
-        <Card className="glass-card border-border/50">
-          <CardContent className="p-6">
-            <div className="text-sm text-muted-foreground mb-2">Active Goals</div>
-            <div className="text-2xl font-bold text-accent">
-              {loading ? "..." : goals.filter(g => g.status === 'In Progress').length}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {loading ? "..." : `${averageGoalCompletion}% average completion`}
-            </div>
-          </CardContent>
-        </Card>
+          <Tooltip delayDuration={tooltipsEnabled ? 300 : 999999}>
+            <TooltipTrigger asChild>
+              <Card className="glass-card border-border/50 cursor-help">
+                <CardContent className="p-6">
+                  <div className="text-sm text-muted-foreground mb-2">Active Goals</div>
+                  <div className="text-2xl font-bold text-accent">
+                    {loading ? "..." : goals.filter(g => g.status === 'In Progress').length}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {loading ? "..." : `${averageGoalCompletion}% average completion`}
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            {tooltipsEnabled && (
+              <TooltipContent>
+                <p className="font-semibold mb-1">Active Goals</p>
+                <p className="text-xs max-w-xs">
+                  Number of goals currently in progress. Shows your average completion percentage to track overall progress.
+                </p>
+              </TooltipContent>
+            )}
+          </Tooltip>
 
-        <Card className="glass-card border-border/50">
-          <CardContent className="p-6">
-            <div className="text-sm text-muted-foreground mb-2">Recent Activity</div>
-            <div className="text-2xl font-bold text-primary">
-              {loading ? "..." : recentMeetings.length}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {loading ? "..." : "interactions in last 30 days"}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <Tooltip delayDuration={tooltipsEnabled ? 300 : 999999}>
+            <TooltipTrigger asChild>
+              <Card className="glass-card border-border/50 cursor-help">
+                <CardContent className="p-6">
+                  <div className="text-sm text-muted-foreground mb-2">Recent Activity</div>
+                  <div className="text-2xl font-bold text-primary">
+                    {loading ? "..." : recentMeetings.length}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {loading ? "..." : "interactions in last 30 days"}
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            {tooltipsEnabled && (
+              <TooltipContent>
+                <p className="font-semibold mb-1">Recent Activity</p>
+                <p className="text-xs max-w-xs">
+                  Total interactions (meetings, coffee chats, etc.) in the last 30 days. Measures your recent networking engagement.
+                </p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </div>
+      </TooltipProvider>
     </div>
   );
 };

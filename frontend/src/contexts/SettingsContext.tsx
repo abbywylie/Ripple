@@ -4,9 +4,11 @@ interface SettingsContextType {
   darkMode: boolean;
   animationsEnabled: boolean;
   efficientLoading: boolean;
+  tooltipsEnabled: boolean;
   setDarkMode: (enabled: boolean) => void;
   setAnimationsEnabled: (enabled: boolean) => void;
   setEfficientLoading: (enabled: boolean) => void;
+  setTooltipsEnabled: (enabled: boolean) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -46,6 +48,19 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       try {
         const settings = JSON.parse(saved);
         return settings.efficientLoading ?? true;
+      } catch {
+        return true;
+      }
+    }
+    return true;
+  });
+
+  const [tooltipsEnabled, setTooltipsEnabledState] = useState(() => {
+    const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (saved) {
+      try {
+        const settings = JSON.parse(saved);
+        return settings.tooltipsEnabled ?? true;
       } catch {
         return true;
       }
@@ -97,15 +112,25 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
   };
 
+  const setTooltipsEnabled = (enabled: boolean) => {
+    setTooltipsEnabledState(enabled);
+    const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    const settings = saved ? JSON.parse(saved) : {};
+    settings.tooltipsEnabled = enabled;
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  };
+
   return (
     <SettingsContext.Provider
       value={{
         darkMode,
         animationsEnabled,
         efficientLoading,
+        tooltipsEnabled,
         setDarkMode,
         setAnimationsEnabled,
         setEfficientLoading,
+        setTooltipsEnabled,
       }}
     >
       {children}
