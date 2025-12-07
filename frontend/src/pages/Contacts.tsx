@@ -650,12 +650,13 @@ const Contacts = () => {
             Add Contact
           </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[1000px] max-h-[90vh] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle>Add New Contact</DialogTitle>
               <p className="text-sm text-muted-foreground">Fill in the details below to add a new contact. Only name is required.</p>
             </DialogHeader>
-            <div className="grid gap-6 py-4">
+            <div className="flex gap-6 py-4 overflow-y-auto flex-1">
+              <div className="flex-1 min-w-0">
               {/* Personal Information Section */}
               <div className="space-y-4">
                 <div>
@@ -732,7 +733,7 @@ const Contacts = () => {
                               <TooltipTrigger asChild>
                                 <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                               </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
+                              <TooltipContent side="right" align="start" className="max-w-xs">
                                 <p className="font-semibold mb-1">Category</p>
                                 <p className="text-xs mb-2">The type of relationship with this contact:</p>
                                 <ul className="text-xs space-y-1 list-disc list-inside">
@@ -871,8 +872,67 @@ const Contacts = () => {
                   </div>
                 </div>
               </div>
+              </div>
+            
+            {/* Example Walkthrough Card - Only shows when dialog is open */}
+            {isDialogOpen && (
+              <Card className="w-80 flex-shrink-0 h-fit sticky top-0">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <Info className="h-4 w-4 text-primary" />
+                    <CardTitle className="text-sm">Example Walkthrough</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <div className="space-y-2">
+                    <p className="font-semibold text-xs text-muted-foreground">Scenario: Meeting a recruiter</p>
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-start gap-2">
+                        <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold mt-0.5 flex-shrink-0">1</div>
+                        <div>
+                          <p className="font-medium">Personal Info</p>
+                          <p className="text-muted-foreground">Name: "Sarah Johnson" (required)</p>
+                          <p className="text-muted-foreground">Company: "Google"</p>
+                          <p className="text-muted-foreground">Job Title: "Senior Recruiter"</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold mt-0.5 flex-shrink-0">2</div>
+                        <div>
+                          <p className="font-medium">Follow-up Settings</p>
+                          <p className="text-muted-foreground">Category: "Professional"</p>
+                          <p className="text-muted-foreground">Tier: "Tier 1 (Dream)"</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold mt-0.5 flex-shrink-0">3</div>
+                        <div>
+                          <p className="font-medium">Auto-Calculated</p>
+                          <p className="text-muted-foreground">Next Follow-up: <strong>2 days</strong> from today</p>
+                          <p className="text-xs text-muted-foreground italic">(Tier 1 + Professional = 2 days)</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold mt-0.5 flex-shrink-0">4</div>
+                        <div>
+                          <p className="font-medium">First Meeting</p>
+                          <p className="text-muted-foreground">Set to today's date</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="bg-muted/50 rounded-md p-2">
+                    <p className="text-xs font-medium mb-1">💡 Tip</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      Hover over the <HelpCircle className="h-3 w-3" /> icons for detailed explanations of each field.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-4 border-t">
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
@@ -885,62 +945,6 @@ const Contacts = () => {
             </div>
           </DialogContent>
         </Dialog>
-        
-        {/* Example Walkthrough Card */}
-        <Card className="w-80 flex-shrink-0">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Info className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Example Walkthrough</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="space-y-2">
-              <p className="font-semibold text-xs text-muted-foreground">Scenario: Meeting a recruiter</p>
-              <div className="space-y-1.5 text-xs">
-                <div className="flex items-start gap-2">
-                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold mt-0.5 flex-shrink-0">1</div>
-                  <div>
-                    <p className="font-medium">Personal Info</p>
-                    <p className="text-muted-foreground">Name: "Sarah Johnson" (required)</p>
-                    <p className="text-muted-foreground">Company: "Google"</p>
-                    <p className="text-muted-foreground">Job Title: "Senior Recruiter"</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold mt-0.5 flex-shrink-0">2</div>
-                  <div>
-                    <p className="font-medium">Follow-up Settings</p>
-                    <p className="text-muted-foreground">Category: "Professional"</p>
-                    <p className="text-muted-foreground">Tier: "Tier 1 (Dream)"</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold mt-0.5 flex-shrink-0">3</div>
-                  <div>
-                    <p className="font-medium">Auto-Calculated</p>
-                    <p className="text-muted-foreground">Next Follow-up: <strong>2 days</strong> from today</p>
-                    <p className="text-xs text-muted-foreground italic">(Tier 1 + Professional = 2 days)</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold mt-0.5 flex-shrink-0">4</div>
-                  <div>
-                    <p className="font-medium">First Meeting</p>
-                    <p className="text-muted-foreground">Set to today's date</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <Separator />
-            <div className="bg-muted/50 rounded-md p-2">
-              <p className="text-xs font-medium mb-1">💡 Tip</p>
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                Hover over the <HelpCircle className="h-3 w-3" /> icons for detailed explanations of each field.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
         </div>
       </div>
 
