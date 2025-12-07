@@ -284,6 +284,7 @@ class EmailLogRequest(BaseModel):
 class RAGQueryRequest(BaseModel):
     query: str
     user_id: Optional[int] = None
+    current_route: Optional[str] = None  # Current page/route for contextual help
 
 
 class PublicProfileCreate(BaseModel):
@@ -760,11 +761,15 @@ def log_email_endpoint(payload: EmailLogRequest):
 # RAG Assistant Endpoint
 @app.post("/api/rag/query", response_model=dict)
 def rag_query_endpoint(payload: RAGQueryRequest):
-    """Answer networking and recruiting questions using RAG."""
+    """Answer app navigation and feature questions using RAG."""
     try:
         if answer_rag_question is None:
             raise HTTPException(status_code=503, detail="RAG service not available")
-        result = answer_rag_question(payload.query)
+        # Enhance query with route context if provided
+        query = payload.query
+        if payload.current_route:
+            query = f"[User is on {payload.current_route} page] {payload.query}"
+        result = answer_rag_question(query)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

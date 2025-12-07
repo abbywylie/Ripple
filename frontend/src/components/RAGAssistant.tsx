@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { MessageCircle, X, Send, User, MoreHorizontal, Mail, Save, Pin } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -38,23 +39,37 @@ const cleanResponse = (text: string) => {
 };
 
 const EXAMPLE_QUESTIONS = [
-  "How do I follow up after meeting a recruiter?",
-  "What's a good first message to send on LinkedIn?",
-  "She hasn't responded to my last email. What should I do?",
+  "How do I add a new contact?",
+  "What is the Discover page for?",
+  "How do I set up follow-up reminders?",
 ];
 
 const RAGAssistant = () => {
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [showExamples, setShowExamples] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hi! I'm your networking assistant. Ask me anything about tracking companies, outreach strategies, or the recruiting tracker! 💼",
+      content: "Hi! I'm your Ripple navigation assistant. Ask me anything about using the app, understanding features, or navigating between pages! 🚀",
       timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Get current route for contextual help
+  const getCurrentRoute = () => {
+    const path = location.pathname;
+    if (path.includes('/contacts')) return 'Contacts';
+    if (path.includes('/discover')) return 'Discover';
+    if (path.includes('/meetings')) return 'Meetings';
+    if (path.includes('/goals')) return 'Goals';
+    if (path.includes('/reminders')) return 'Reminders';
+    if (path.includes('/profile')) return 'Profile';
+    if (path.includes('/dashboard')) return 'Dashboard';
+    return 'Home';
+  };
 
   // Show examples modal when chat opens for the first time (only greeting message)
   useEffect(() => {
@@ -182,6 +197,7 @@ const RAGAssistant = () => {
     try {
       const response = await api.post("/api/rag/query", {
         query: textToSend,
+        current_route: getCurrentRoute(),
       });
 
       const assistantMessage: Message = {
@@ -219,9 +235,9 @@ const RAGAssistant = () => {
       <Dialog open={showExamples} onOpenChange={setShowExamples}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Get Started</DialogTitle>
+            <DialogTitle>Get Started with Ripple</DialogTitle>
             <DialogDescription>
-              Choose a question to get started, or type your own below.
+              Choose a question to learn about the app, or type your own below.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-4">

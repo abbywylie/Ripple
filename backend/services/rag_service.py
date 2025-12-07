@@ -1,6 +1,6 @@
 """
 RAG (Retrieval-Augmented Generation) Service
-Helps students with networking and recruiting questions using the recruiting tracker template
+Helps users navigate and understand the Ripple app features and functionality
 """
 import os
 from typing import List, Dict, Optional, Tuple
@@ -494,14 +494,22 @@ def retrieve_context(query: str, k: int = 5) -> List[Dict[str, str]]:
 
 def _detect_intent(query: str) -> str:
     q = (query or "").lower()
-    if any(k in q for k in ["met", "meet", "follow up", "follow-up"]):
-        return "email_intro"
-    if any(k in q for k in ["thank", "thanks"]):
-        return "email_thanks"
-    if any(k in q for k in ["informational", "interview", "questions"]):
-        return "informational_interview"
-    if any(k in q for k in ["tracker", "tier", "outreach"]):
-        return "tracker_guidance"
+    if any(k in q for k in ["contact", "add contact", "create contact", "new contact"]):
+        return "add_contact"
+    if any(k in q for k in ["discover", "find", "search", "browse", "recommend"]):
+        return "discover_page"
+    if any(k in q for k in ["meeting", "schedule", "calendar", "appointment"]):
+        return "meetings"
+    if any(k in q for k in ["goal", "objective", "target"]):
+        return "goals"
+    if any(k in q for k in ["reminder", "follow-up", "follow up"]):
+        return "reminders"
+    if any(k in q for k in ["profile", "settings", "account"]):
+        return "profile"
+    if any(k in q for k in ["navigate", "navigation", "menu", "sidebar", "page"]):
+        return "navigation"
+    if any(k in q for k in ["how", "help", "what", "where", "tutorial"]):
+        return "general_help"
     return "general"
 
 
@@ -551,10 +559,12 @@ def _build_messages(query: str, context: str, intent: str, template_hint: str):
     filtered_context = _filter_context(context)
     
     system = (
-        "You are a friendly, knowledgeable networking coach."
-        " Use only the provided knowledge base context."
-        " Respond conversationally: acknowledge the user's situation, then give 3–5 concise bullets,"
-        " optionally include a tiny template when relevant, and end with a follow-up question."
+        "You are a friendly, helpful app navigation assistant for Ripple, a professional networking platform."
+        " Use only the provided knowledge base context about how to use the app."
+        " Help users understand features, navigate the app, and accomplish their goals."
+        " Respond conversationally: acknowledge their question, then give 3–5 concise, actionable steps or tips,"
+        " and end with a helpful follow-up question."
+        " Focus on practical how-to guidance and feature explanations."
         " Do not paste long passages, file structures, or directory listings; summarize in your own words."
         " Ignore any file structure or directory listing content in the context."
     )
