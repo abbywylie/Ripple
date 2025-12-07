@@ -32,18 +32,21 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 USE_GROQ = bool(GROQ_API_KEY)
 USE_OPENAI = bool(OPENAI_API_KEY)
 
-# We'll use a simple approach first - can upgrade to proper vector store later
-
 # Path to optional on-disk knowledge base
 KB_DIR = Path(__file__).parent.parent / "knowledge_base"
 
-# Track last modified time to support lightweight hot reload
+
+# ---------- KB Loading & Hot Reload ----------
+
 def _kb_latest_mtime() -> float:
+    """Get latest modified time across KB files for lightweight hot reload."""
     try:
         if KB_DIR.exists() and KB_DIR.is_dir():
             mtimes: List[float] = []
             # Recursively check all .md and .txt files
-            for path_str in glob.glob(str(KB_DIR / "**/*.md"), recursive=True) + glob.glob(str(KB_DIR / "**/*.txt"), recursive=True):
+            for path_str in glob.glob(str(KB_DIR / "**/*.md"), recursive=True) + glob.glob(
+                str(KB_DIR / "**/*.txt"), recursive=True
+            ):
                 path = Path(path_str)
                 # Skip README files
                 if path.name.lower() == "readme.md":
@@ -57,6 +60,7 @@ def _kb_latest_mtime() -> float:
         return 0.0
     return 0.0
 
+
 def load_knowledge_base_from_folder() -> Dict[str, str]:
     """
     Load all .md and .txt files from backend/knowledge_base (recursively) into a dict of {filename: content}.
@@ -67,29 +71,39 @@ def load_knowledge_base_from_folder() -> Dict[str, str]:
     try:
         if KB_DIR.exists() and KB_DIR.is_dir():
             # Recursively find all .md and .txt files in subdirectories
-            for path_str in glob.glob(str(KB_DIR / "**/*.md"), recursive=True) + glob.glob(str(KB_DIR / "**/*.txt"), recursive=True):
+            for path_str in glob.glob(str(KB_DIR / "**/*.md"), recursive=True) + glob.glob(
+                str(KB_DIR / "**/*.txt"), recursive=True
+            ):
                 path = Path(path_str)
-                
+
                 # Skip README files and files that look like directory listings
                 if path.name.lower() == "readme.md":
                     continue
-                
+
                 try:
                     text = path.read_text(encoding="utf-8")
-                    
+
                     # Filter out files that are mostly directory structure listings
                     # Check if more than 30% of lines look like file structure (│, ├──, └──, etc.)
                     lines = text.splitlines()
                     if lines:
-                        structure_lines = sum(1 for ln in lines if any(marker in ln for marker in ["│", "├──", "└──", "├", "└", "──"]))
+                        structure_lines = sum(
+                            1 for ln in lines if any(marker in ln for marker in ["│", "├──", "└──", "├", "└", "──"])
+                        )
                         if structure_lines > len(lines) * 0.3:
                             print(f"RAG: Skipping {path.name} - appears to be directory structure")
                             continue
-                    
+
                     # Store by relative path for better identification (e.g., "guides/user-success/networking-timeline")
                     # But use a readable key format
                     rel_path = path.relative_to(KB_DIR)
-                    key = str(rel_path).replace("/", "_").replace("\\", "_").replace(".md", "").replace(".txt", "")
+                    key = (
+                        str(rel_path)
+                        .replace("/", "_")
+                        .replace("\\", "_")
+                        .replace(".md", "")
+                        .replace(".txt", "")
+                    )
                     kb_files[key] = text.strip()
                 except Exception as e:
                     # Skip unreadable files
@@ -101,6 +115,7 @@ def load_knowledge_base_from_folder() -> Dict[str, str]:
         pass
     return kb_files
 
+
 # Load KB at import time
 KB_FILES: Dict[str, str] = load_knowledge_base_from_folder()
 KB_LAST_MTIME: float = _kb_latest_mtime()
@@ -110,8 +125,9 @@ KB_CHUNKS: List[Dict[str, str]] = []  # {id, source, text}
 _EMB_MATRIX = None  # type: ignore
 _TFIDF = None  # type: ignore
 
-# Initial index build (called at end of file after all functions defined)
+
 def _init_index_once():
+    """Initial index build."""
     try:
         if KB_FILES:
             _rebuild_index()
@@ -142,44 +158,35 @@ def ensure_kb_up_to_date() -> None:
 def get_relevant_context(query: str) -> str:
     """
     Get relevant context from knowledge base based on query.
-    This is a simple keyword-based retrieval for now.
+    Uses semantic retrieval over chunk index.
     """
     # Ensure the KB reflects latest files without server restart
     ensure_kb_up_to_date()
 
     query_lower = query.lower()
-    
+
     # Semantic retrieval over chunk index
     if KB_CHUNKS:
         chunks = retrieve_context(query_lower, k=5)
         return "\n\n".join(c["text"] for c in chunks)
-    
+
     # If no KB files present, return empty string
     return ""
 
 
+# ---------- Core Answer Function ----------
+
 def answer_rag_question(query: str, user_context: str = "") -> Dict:
     """
-    Answer a question using the knowledge base context.
+    Answer a question using the knowledge base context when relevant.
+    If KB context is weak or absent, rely on the model's broader knowledge
+    (i.e., what it has learned from the internet during pretraining).
     Returns both the answer and the source context used.
     """
     # Get relevant context from knowledge base (from folder only)
     context = get_relevant_context(query)
-    
-    # If we have no KB content, return a helpful notice without generic tips
-    if not context.strip():
-        notice = (
-            "I don’t have knowledge base content to reference yet."
-            " Add .md or .txt files to backend/knowledge_base and ask again."
-        )
-        return {
-            "query": query,
-            "context": "",
-            "answer": _format_conversational(query, notice),
-            "needs_llm": True
-        }
-    
-    # Detect intent and pick template
+
+    # Detect intent and pick template hint
     intent = _detect_intent(query)
     template_hint = _template_hint(intent)
 
@@ -187,16 +194,16 @@ def answer_rag_question(query: str, user_context: str = "") -> Dict:
     if USE_GROQ:
         try:
             import groq
-            
+
             client = groq.Groq(api_key=GROQ_API_KEY)
-            
+
             response = client.chat.completions.create(
                 model="llama-3.1-8b-instant",
                 messages=_build_messages(query, context, intent, template_hint),
                 temperature=0.4,
-                max_tokens=220
+                max_tokens=220,
             )
-            
+
             answer = response.choices[0].message.content
             conversational = _format_conversational(query, answer)
             return {
@@ -204,7 +211,7 @@ def answer_rag_question(query: str, user_context: str = "") -> Dict:
                 "context": context,
                 "answer": conversational,
                 "needs_llm": False,
-                "model": "llama-3.1-8b-instant (Groq)"
+                "model": "llama-3.1-8b-instant (Groq)",
             }
         except Exception as e:
             # Fallback to concise response if Groq fails
@@ -216,23 +223,23 @@ def answer_rag_question(query: str, user_context: str = "") -> Dict:
                 "context": context,
                 "answer": conversational,
                 "needs_llm": True,
-                "error": str(e)
+                "error": str(e),
             }
-    
+
     # If OpenAI is available, use it for better answers
     if USE_OPENAI:
         try:
             import openai
-            
+
             openai.api_key = OPENAI_API_KEY
-            
+
             response = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=_build_messages(query, context, intent, template_hint),
                 temperature=0.4,
-                max_tokens=220
+                max_tokens=220,
             )
-            
+
             answer = response.choices[0].message.content
             conversational = _format_conversational(query, answer)
             return {
@@ -240,7 +247,7 @@ def answer_rag_question(query: str, user_context: str = "") -> Dict:
                 "context": context,
                 "answer": conversational,
                 "needs_llm": False,
-                "model": "gpt-3.5-turbo"
+                "model": "gpt-3.5-turbo",
             }
         except Exception as e:
             # Fallback to concise response if OpenAI fails
@@ -252,9 +259,9 @@ def answer_rag_question(query: str, user_context: str = "") -> Dict:
                 "context": context,
                 "answer": conversational,
                 "needs_llm": True,
-                "error": str(e)
+                "error": str(e),
             }
-    
+
     # Fallback: return contextual answer without LLM
     concise = _make_concise_answer(query, context)
     conversational = _format_conversational(query, concise)
@@ -262,15 +269,23 @@ def answer_rag_question(query: str, user_context: str = "") -> Dict:
         "query": query,
         "context": context,
         "answer": conversational,
-        "needs_llm": True
+        "needs_llm": True,
     }
 
 
-def _format_conversational(query: str, bullets_text: str) -> str:
-    """Wrap answer with conversational structure: acknowledge, brief bullets, tiny template (if email-y), follow-up."""
+# ---------- Conversational Formatting ----------
+
+def _format_conversational(query: str, answer_text: str) -> str:
+    """
+    Wrap answer with conversational structure:
+    - opening acknowledgement
+    - brief bullet-ized version of the answer
+    - tiny email template when relevant
+    - follow-up question
+    """
     q = (query or "").strip()
     opening = _acknowledge(q)
-    bullets = _normalize_bullets(bullets_text)
+    bullets = _normalize_bullets(answer_text)
     template = _maybe_email_template(q)
     follow_up = _follow_up(q)
 
@@ -296,17 +311,33 @@ def _acknowledge(q: str) -> str:
     return "Here’s a concise answer based on best practices."
 
 
-def _normalize_bullets(text: str) -> list[str]:
-    lines = [ln.strip(" -•\t") for ln in (text or "").splitlines() if ln.strip()]
-    # Keep short, actionable lines
-    bullets: list[str] = []
+def _normalize_bullets(text: str) -> List[str]:
+    """
+    Extract 3–5 short, actionable bullet points from arbitrary text.
+    Cleans markdown headings and leading bullet markers.
+    """
+    lines = [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
+    bullets: List[str] = []
+
     for ln in lines:
+        # Strip markdown heading markers like "## "
+        while ln.startswith("#"):
+            ln = ln[1:].lstrip()
+
+        # Strip leading bullet-ish characters
+        ln = ln.lstrip("-•\t ")
+
         if 2 <= len(ln) <= 150:
             bullets.append(ln)
         if len(bullets) >= 5:
             break
+
     if not bullets:
-        bullets = ["Keep it brief (one screen on mobile).", "Ask 2–3 focused questions.", "Send a thank-you within 24 hours."]
+        bullets = [
+            "Keep it brief (one screen on mobile).",
+            "Ask 2–3 focused questions.",
+            "Send a thank-you within 24 hours.",
+        ]
     return bullets[:5]
 
 
@@ -334,11 +365,9 @@ def _make_concise_answer(query: str, context: str) -> str:
         return ""
     q = (query or "").lower()
     # Prefer lines that look like bullets or short guidelines
-    lines = [
-        ln.strip(" -•\t") for ln in context.splitlines() if ln.strip()
-    ]
+    lines = [ln.strip(" -•\t") for ln in context.splitlines() if ln.strip()]
     # Simple keyword guidance
-    preferred_keywords = []
+    preferred_keywords: List[str] = []
     if any(k in q for k in ["tier", "tiers"]):
         preferred_keywords += ["Tier 1", "Tier 2", "Tier 3"]
     if any(k in q for k in ["outreach", "follow-up", "follow up"]):
@@ -346,7 +375,7 @@ def _make_concise_answer(query: str, context: str) -> str:
     if any(k in q for k in ["email", "intro", "message"]):
         preferred_keywords += ["email", "introduction", "brief", "20 minutes"]
 
-    selected: list[str] = []
+    selected: List[str] = []
     # First, pick lines containing preferred keywords
     for kw in preferred_keywords:
         for ln in lines:
@@ -362,7 +391,9 @@ def _make_concise_answer(query: str, context: str) -> str:
         for ln in lines:
             if len(selected) >= 5:
                 break
-            if 3 <= len(ln) <= 140 and any(x in ln.lower() for x in ["ask", "send", "track", "prepare", "brief", "thank"]):
+            if 3 <= len(ln) <= 140 and any(
+                x in ln.lower() for x in ["ask", "send", "track", "prepare", "brief", "thank"]
+            ):
                 if ln not in selected:
                     selected.append(ln)
 
@@ -376,15 +407,10 @@ def _make_concise_answer(query: str, context: str) -> str:
 
     # Limit to 3–5 bullets
     bullets = selected[:5]
-    if len(bullets) > 5:
-        bullets = bullets[:5]
-
     return "\n".join([f"- {b}" for b in bullets[:5]])
 
 
-# ---------------------------
-# Semantic Retrieval Utilities
-# ---------------------------
+# ---------- Semantic Retrieval Utilities ----------
 
 def _rebuild_index() -> None:
     """Build chunked KB and vector index."""
@@ -409,7 +435,7 @@ def _rebuild_index() -> None:
             _EMB_MATRIX = None
             _TFIDF = None
         else:
-            _TFIDF = TfidfVectorizer(max_features=20000, ngram_range=(1,2))
+            _TFIDF = TfidfVectorizer(max_features=20000, ngram_range=(1, 2))
             _EMB_MATRIX = _TFIDF.fit_transform(texts)
 
 
@@ -435,6 +461,7 @@ def _chunk_text(text: str, max_len: int = 600, overlap: int = 80) -> List[str]:
 def _embed_texts_openai(texts: List[str]):
     try:
         import openai  # type: ignore
+
         openai.api_key = OPENAI_API_KEY
         # Batch embed; for simplicity, do single call per text (could batch optimize)
         vectors = []
@@ -452,6 +479,7 @@ def _embed_query(query: str):
     if USE_OPENAI:
         try:
             import openai  # type: ignore
+
             openai.api_key = OPENAI_API_KEY
             resp = openai.embeddings.create(model="text-embedding-3-small", input=query)
             vec = resp.data[0].embedding
@@ -467,6 +495,10 @@ def _embed_query(query: str):
 
 
 def retrieve_context(query: str, k: int = 5) -> List[Dict[str, str]]:
+    """
+    Retrieve top-k KB chunks for a query using cosine similarity.
+    Drops chunks that are clearly unrelated via a similarity threshold.
+    """
     if not KB_CHUNKS:
         return []
     q_vec = _embed_query(query)
@@ -476,32 +508,50 @@ def retrieve_context(query: str, k: int = 5) -> List[Dict[str, str]]:
     try:
         if _np is not None and isinstance(_EMB_MATRIX, _np.ndarray):
             # cosine similarity manually
-            a = q_vec / ( _np.linalg.norm(q_vec) + 1e-12 )
-            b = _EMB_MATRIX / ( _np.linalg.norm(_EMB_MATRIX, axis=1, keepdims=True) + 1e-12 )
+            a = q_vec / (_np.linalg.norm(q_vec) + 1e-12)
+            b = _EMB_MATRIX / (_np.linalg.norm(_EMB_MATRIX, axis=1, keepdims=True) + 1e-12)
             sims = (a @ b.T).flatten()
         else:
             # sparse matrix (TF-IDF) path
             sims = cosine_similarity(q_vec, _EMB_MATRIX).flatten()
-        idxs = sorted(range(len(sims)), key=lambda i: sims[i], reverse=True)[:k]
-        return [KB_CHUNKS[i] for i in idxs]
+
+        scored = sorted(
+            [(i, sims[i]) for i in range(len(sims))],
+            key=lambda x: x[1],
+            reverse=True,
+        )
+
+        # Drop truly unrelated chunks with a loose minimum similarity
+        MIN_SIM = 0.15
+        top = [KB_CHUNKS[i] for (i, s) in scored[:k] if s >= MIN_SIM]
+
+        return top
     except Exception:
         return KB_CHUNKS[:k]
 
 
-# ---------------------------
-# Intent and Prompt Utilities
-# ---------------------------
+# ---------- Intent & Prompt Utilities ----------
 
 def _detect_intent(query: str) -> str:
+    """
+    Rough intent classification to influence templates and tone.
+    We only treat something as an informational interview if it’s explicitly
+    called that (so regular job interviews don't get that agenda).
+    """
     q = (query or "").lower()
+
+    if "informational" in q or "coffee chat" in q:
+        return "informational_interview"
+
     if any(k in q for k in ["met", "meet", "follow up", "follow-up"]):
         return "email_intro"
+
     if any(k in q for k in ["thank", "thanks"]):
         return "email_thanks"
-    if any(k in q for k in ["informational", "interview", "questions"]):
-        return "informational_interview"
+
     if any(k in q for k in ["tracker", "tier", "outreach"]):
         return "tracker_guidance"
+
     return "general"
 
 
@@ -517,9 +567,7 @@ def _template_hint(intent: str) -> str:
             " I’ll follow up on [next step].\n\nBest,\n[Your Name]"
         )
     if intent == "informational_interview":
-        return (
-            "Quick agenda: 1) Your path 2) Day-to-day 3) Advice for breaking in."
-        )
+        return "Quick agenda: 1) Your path 2) Day-to-day 3) Advice for breaking in."
     return ""
 
 
@@ -527,10 +575,10 @@ def _filter_context(context: str) -> str:
     """Filter out directory structure listings and file paths from context."""
     if not context:
         return context
-    
+
     lines = context.splitlines()
-    filtered_lines = []
-    
+    filtered_lines: List[str] = []
+
     for line in lines:
         # Skip lines that look like directory structure
         if any(marker in line for marker in ["│", "├──", "└──", "├", "└"]):
@@ -542,31 +590,40 @@ def _filter_context(context: str) -> str:
         if len(line.strip()) > 0 and line.strip().replace("-", "").replace("=", "").replace("_", "").strip() == "":
             continue
         filtered_lines.append(line)
-    
+
     return "\n".join(filtered_lines)
 
 
 def _build_messages(query: str, context: str, intent: str, template_hint: str):
-    # Filter out any directory structure content from context
+    """
+    Build messages for the chat completion call.
+
+    The model:
+    - can use BOTH its own knowledge (trained on internet-scale data)
+      and the KB context
+    - should prefer KB context when clearly relevant
+    - should answer the question directly if context isn't very helpful
+    """
     filtered_context = _filter_context(context)
-    
+    context_block = filtered_context.strip() or "[No strongly relevant context from the knowledge base.]"
+
     system = (
-        "You are a friendly, knowledgeable networking coach."
-        " Use only the provided knowledge base context."
-        " Respond conversationally: acknowledge the user's situation, then give 3–5 concise bullets,"
-        " optionally include a tiny template when relevant, and end with a follow-up question."
-        " Do not paste long passages, file structures, or directory listings; summarize in your own words."
-        " Ignore any file structure or directory listing content in the context."
+        "You are a friendly, knowledgeable networking and recruiting coach."
+        " You can use both your own knowledge and the provided knowledge base context."
+        " Prefer the knowledge base when it is clearly relevant; if it is not, answer from your broader expertise."
+        " Answer clearly and practically, and do NOT simply repeat headings, file names, or directory listings."
     )
+
     user = (
-        f"Context (top chunks):\n{filtered_context}\n\n"
+        f"User question:\n{query}\n\n"
         f"Intent: {intent}\n"
         f"Template hint (optional): {template_hint}\n\n"
-        f"Question: {query}\n\n"
-        "Please follow the format strictly: opening acknowledgement, 3–5 bullets,"
-        " optional tiny template, and a follow-up question."
-        " Do NOT include file structures, directory listings, or folder paths in your response."
+        "Relevant context from the knowledge base (may or may not be useful):\n"
+        f"{context_block}\n\n"
+        "Answer the question directly. If the context is not helpful, ignore it."
+        " Do not include raw file paths, directory trees, or code blocks from the context."
     )
+
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": user},
@@ -575,4 +632,3 @@ def _build_messages(query: str, context: str, intent: str, template_hint: str):
 
 # Initialize index after all functions are defined
 _init_index_once()
-
