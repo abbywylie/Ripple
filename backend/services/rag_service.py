@@ -42,9 +42,14 @@ def _kb_latest_mtime() -> float:
     try:
         if KB_DIR.exists() and KB_DIR.is_dir():
             mtimes: List[float] = []
-            for path_str in glob.glob(str(KB_DIR / "*.md")) + glob.glob(str(KB_DIR / "*.txt")):
+            # Recursively check all .md and .txt files
+            for path_str in glob.glob(str(KB_DIR / "**/*.md"), recursive=True) + glob.glob(str(KB_DIR / "**/*.txt"), recursive=True):
+                path = Path(path_str)
+                # Skip README files
+                if path.name.lower() == "readme.md":
+                    continue
                 try:
-                    mtimes.append(Path(path_str).stat().st_mtime)
+                    mtimes.append(path.stat().st_mtime)
                 except Exception:
                     continue
             return max(mtimes) if mtimes else 0.0
@@ -54,22 +59,44 @@ def _kb_latest_mtime() -> float:
 
 def load_knowledge_base_from_folder() -> Dict[str, str]:
     """
-    Load all .md and .txt files from backend/knowledge_base into a dict of {filename: content}.
+    Load all .md and .txt files from backend/knowledge_base (recursively) into a dict of {filename: content}.
+    Skips README.md files and files that look like directory listings.
     Returns empty dict if folder doesn't exist or has no matching files.
     """
     kb_files: Dict[str, str] = {}
     try:
         if KB_DIR.exists() and KB_DIR.is_dir():
-            for path_str in glob.glob(str(KB_DIR / "*.md")) + glob.glob(str(KB_DIR / "*.txt")):
+            # Recursively find all .md and .txt files in subdirectories
+            for path_str in glob.glob(str(KB_DIR / "**/*.md"), recursive=True) + glob.glob(str(KB_DIR / "**/*.txt"), recursive=True):
                 path = Path(path_str)
+                
+                # Skip README files and files that look like directory listings
+                if path.name.lower() == "readme.md":
+                    continue
+                
                 try:
                     text = path.read_text(encoding="utf-8")
-                    # Store by stem for readability
-                    kb_files[path.stem] = text.strip()
-                except Exception:
+                    
+                    # Filter out files that are mostly directory structure listings
+                    # Check if more than 30% of lines look like file structure (│, ├──, └──, etc.)
+                    lines = text.splitlines()
+                    if lines:
+                        structure_lines = sum(1 for ln in lines if any(marker in ln for marker in ["│", "├──", "└──", "├", "└", "──"]))
+                        if structure_lines > len(lines) * 0.3:
+                            print(f"RAG: Skipping {path.name} - appears to be directory structure")
+                            continue
+                    
+                    # Store by relative path for better identification (e.g., "guides/user-success/networking-timeline")
+                    # But use a readable key format
+                    rel_path = path.relative_to(KB_DIR)
+                    key = str(rel_path).replace("/", "_").replace("\\", "_").replace(".md", "").replace(".txt", "")
+                    kb_files[key] = text.strip()
+                except Exception as e:
                     # Skip unreadable files
+                    print(f"RAG: Could not load {path_str}: {e}")
                     continue
-    except Exception:
+    except Exception as e:
+        print(f"RAG: Error loading knowledge base: {e}")
         # On any unexpected error, fall back silently
         pass
     return kb_files
