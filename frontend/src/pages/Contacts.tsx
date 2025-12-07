@@ -651,124 +651,140 @@ const Contacts = () => {
           <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Contact</DialogTitle>
-              <p className="text-sm text-muted-foreground">Fill in the details below to add a new contact</p>
+              <p className="text-sm text-muted-foreground">Fill in the details below to add a new contact. Only name is required.</p>
             </DialogHeader>
             <div className="grid gap-6 py-4">
+              {/* Personal Information Section */}
               <div className="space-y-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">
-                    Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="name"
-                    value={newContact.name}
-                    onChange={(e) => setNewContact({...newContact, name: e.target.value})}
-                    placeholder="Enter full name"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newContact.email}
-                    onChange={(e) => setNewContact({...newContact, email: e.target.value})}
-                    placeholder="Enter email address"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input
-                      id="phone"
-                      value={newContact.phone_number}
-                      onChange={(e) => setNewContact({...newContact, phone_number: e.target.value})}
-                      placeholder="Enter phone number"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="company">Company</Label>
-                    <Input
-                      id="company"
-                      value={newContact.company}
-                      onChange={(e) => setNewContact({...newContact, company: e.target.value})}
-                      placeholder="Enter company name"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="job_title">Job Title</Label>
-                    <Input
-                      id="job_title"
-                      value={newContact.job_title}
-                      onChange={(e) => setNewContact({...newContact, job_title: e.target.value})}
-                      placeholder="Enter job title"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="category">Category</Label>
-                    <Select value={newContact.category} onValueChange={(value) => {
-                      const followUpDate = calculateFollowUpDate(newContact.tier, value);
-                      setNewContact({...newContact, category: value, date_next_follow_up: followUpDate});
-                    }}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Professional">Professional</SelectItem>
-                        <SelectItem value="Personal">Personal</SelectItem>
-                        <SelectItem value="Academic">Academic</SelectItem>
-                        <SelectItem value="Industry">Industry</SelectItem>
-                        <SelectItem value="Mentor">Mentor</SelectItem>
-                        <SelectItem value="Friend">Friend</SelectItem>
-                      </SelectContent>
-                    </Select>
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Personal Information</h3>
+                  <div className="space-y-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="name">
+                        Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="name"
+                        value={newContact.name}
+                        onChange={(e) => setNewContact({...newContact, name: e.target.value})}
+                        placeholder="Enter full name"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={newContact.email}
+                        onChange={(e) => setNewContact({...newContact, email: e.target.value})}
+                        placeholder="Enter email address"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="phone">Phone</Label>
+                        <Input
+                          id="phone"
+                          value={newContact.phone_number}
+                          onChange={(e) => setNewContact({...newContact, phone_number: e.target.value})}
+                          placeholder="Enter phone number"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="company">Company</Label>
+                        <Input
+                          id="company"
+                          value={newContact.company}
+                          onChange={(e) => setNewContact({...newContact, company: e.target.value})}
+                          placeholder="Enter company name"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="job_title">Job Title</Label>
+                      <Input
+                        id="job_title"
+                        value={newContact.job_title}
+                        onChange={(e) => setNewContact({...newContact, job_title: e.target.value})}
+                        placeholder="Enter job title"
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="tier">
-                      Tier <span className="text-red-500">*</span>
-                    </Label>
-                <Select value={newContact.tier} onValueChange={(value) => {
-                  const followUpDate = calculateFollowUpDate(value, newContact.category);
-                  setNewContact({...newContact, tier: value, date_next_follow_up: followUpDate});
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select tier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Tier 1">Tier 1 (Dream)</SelectItem>
-                    <SelectItem value="Tier 2">Tier 2 (Great)</SelectItem>
-                    <SelectItem value="Tier 3">Tier 3 (Curious)</SelectItem>
-                  </SelectContent>
-                </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Follow-up date auto-set based on tier & category
-                    </p>
+              </div>
+
+              <Separator />
+
+              {/* Follow-up Settings Section */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Follow-up Settings</h3>
+                  <p className="text-xs text-muted-foreground mb-4">Optional settings to help you track and manage follow-ups</p>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="category">Category</Label>
+                        <Select value={newContact.category} onValueChange={(value) => {
+                          const followUpDate = calculateFollowUpDate(newContact.tier, value);
+                          setNewContact({...newContact, category: value, date_next_follow_up: followUpDate});
+                        }}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Professional">Professional</SelectItem>
+                            <SelectItem value="Personal">Personal</SelectItem>
+                            <SelectItem value="Academic">Academic</SelectItem>
+                            <SelectItem value="Industry">Industry</SelectItem>
+                            <SelectItem value="Mentor">Mentor</SelectItem>
+                            <SelectItem value="Friend">Friend</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="tier">Tier</Label>
+                        <Select value={newContact.tier} onValueChange={(value) => {
+                          const followUpDate = calculateFollowUpDate(value, newContact.category);
+                          setNewContact({...newContact, tier: value, date_next_follow_up: followUpDate});
+                        }}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select tier" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Tier 1">Tier 1 (Dream)</SelectItem>
+                            <SelectItem value="Tier 2">Tier 2 (Great)</SelectItem>
+                            <SelectItem value="Tier 3">Tier 3 (Curious)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Follow-up date auto-set based on tier & category
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="next_followup">Next Follow-up</Label>
+                        <Input
+                          id="next_followup"
+                          type="date"
+                          value={newContact.date_next_follow_up}
+                          onChange={(e) => setNewContact({...newContact, date_next_follow_up: e.target.value})}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          You can override this date if needed
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="first_meeting">First Meeting</Label>
+                        <Input
+                          id="first_meeting"
+                          type="date"
+                          value={newContact.date_first_meeting}
+                          onChange={(e) => setNewContact({...newContact, date_first_meeting: e.target.value})}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="next_followup">Next Follow-up</Label>
-                    <Input
-                      id="next_followup"
-                      type="date"
-                      value={newContact.date_next_follow_up}
-                      onChange={(e) => setNewContact({...newContact, date_next_follow_up: e.target.value})}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      You can override this date if needed
-                    </p>
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="first_meeting">First Meeting</Label>
-                  <Input
-                    id="first_meeting"
-                    type="date"
-                    value={newContact.date_first_meeting}
-                    onChange={(e) => setNewContact({...newContact, date_first_meeting: e.target.value})}
-                  />
                 </div>
               </div>
             </div>
