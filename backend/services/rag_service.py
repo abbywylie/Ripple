@@ -337,14 +337,22 @@ def _make_concise_answer(query: str, context: str) -> str:
     lines = [
         ln.strip(" -•\t") for ln in context.splitlines() if ln.strip()
     ]
-    # Simple keyword guidance
+    # Simple keyword guidance for app features
     preferred_keywords = []
-    if any(k in q for k in ["tier", "tiers"]):
-        preferred_keywords += ["Tier 1", "Tier 2", "Tier 3"]
-    if any(k in q for k in ["outreach", "follow-up", "follow up"]):
-        preferred_keywords += ["Outreach", "follow", "thank-you"]
-    if any(k in q for k in ["email", "intro", "message"]):
-        preferred_keywords += ["email", "introduction", "brief", "20 minutes"]
+    if any(k in q for k in ["add contact", "create contact", "new contact", "contact"]):
+        preferred_keywords += ["Add Contact", "click", "button", "name", "required", "optional"]
+    if any(k in q for k in ["discover", "find", "search", "browse"]):
+        preferred_keywords += ["Discover", "Recommended", "Browse", "filter", "search"]
+    if any(k in q for k in ["meeting", "schedule", "calendar"]):
+        preferred_keywords += ["Meeting", "schedule", "date", "time", "location"]
+    if any(k in q for k in ["goal", "objective", "target"]):
+        preferred_keywords += ["Goal", "create", "steps", "track"]
+    if any(k in q for k in ["reminder", "follow-up", "follow up"]):
+        preferred_keywords += ["Reminder", "follow-up", "date", "contact"]
+    if any(k in q for k in ["profile", "settings", "account"]):
+        preferred_keywords += ["Profile", "settings", "public", "information"]
+    if any(k in q for k in ["navigate", "navigation", "menu", "page"]):
+        preferred_keywords += ["Navigate", "sidebar", "menu", "page", "Dashboard"]
 
     selected: list[str] = []
     # First, pick lines containing preferred keywords
@@ -357,21 +365,21 @@ def _make_concise_answer(query: str, context: str) -> str:
         if len(selected) >= 5:
             break
 
-    # If still short, pick generic short actionable lines
+    # If still short, pick generic short actionable lines about app usage
     if len(selected) < 3:
         for ln in lines:
             if len(selected) >= 5:
                 break
-            if 3 <= len(ln) <= 140 and any(x in ln.lower() for x in ["ask", "send", "track", "prepare", "brief", "thank"]):
+            if 3 <= len(ln) <= 140 and any(x in ln.lower() for x in ["click", "button", "page", "add", "create", "set", "use", "go to", "navigate"]):
                 if ln not in selected:
                     selected.append(ln)
 
-    # Final fallback: very short summary bullets
+    # Final fallback: app-related help bullets
     if not selected:
         selected = [
-            "Keep emails brief and specific (one screen on mobile).",
-            "Ask 2–3 focused questions; leave room for follow-ups.",
-            "Send thanks within 24 hours and log key notes.",
+            "Click the 'Add Contact' button in the top right of the Contacts page.",
+            "Only the contact name is required - you can add more details later.",
+            "Use the search bar to find contacts quickly.",
         ]
 
     # Limit to 3–5 bullets
@@ -471,7 +479,10 @@ def retrieve_context(query: str, k: int = 5) -> List[Dict[str, str]]:
         return []
     q_vec = _embed_query(query)
     if q_vec is None or _EMB_MATRIX is None:
-        # No embeddings available; return first k chunks
+        # No embeddings available; prioritize app-help content
+        app_help_chunks = [c for c in KB_CHUNKS if "app-help" in c.get("source", "").lower()]
+        if app_help_chunks:
+            return app_help_chunks[:k]
         return KB_CHUNKS[:k]
     try:
         if _np is not None and isinstance(_EMB_MATRIX, _np.ndarray):
@@ -482,9 +493,24 @@ def retrieve_context(query: str, k: int = 5) -> List[Dict[str, str]]:
         else:
             # sparse matrix (TF-IDF) path
             sims = cosine_similarity(q_vec, _EMB_MATRIX).flatten()
+        
+        # Boost app-help content for app-related queries
+        q_lower = query.lower()
+        is_app_query = any(kw in q_lower for kw in ["how", "where", "what", "add", "create", "use", "navigate", "page", "button", "click"])
+        
+        if is_app_query:
+            # Boost scores for app-help chunks
+            for i, chunk in enumerate(KB_CHUNKS):
+                if "app-help" in chunk.get("source", "").lower():
+                    sims[i] = sims[i] * 1.5  # Boost app-help content
+        
         idxs = sorted(range(len(sims)), key=lambda i: sims[i], reverse=True)[:k]
         return [KB_CHUNKS[i] for i in idxs]
     except Exception:
+        # Fallback: prioritize app-help
+        app_help_chunks = [c for c in KB_CHUNKS if "app-help" in c.get("source", "").lower()]
+        if app_help_chunks:
+            return app_help_chunks[:k]
         return KB_CHUNKS[:k]
 
 
@@ -560,22 +586,26 @@ def _build_messages(query: str, context: str, intent: str, template_hint: str):
     
     system = (
         "You are a friendly, helpful app navigation assistant for Ripple, a professional networking platform."
-        " Use only the provided knowledge base context about how to use the app."
-        " Help users understand features, navigate the app, and accomplish their goals."
-        " Respond conversationally: acknowledge their question, then give 3–5 concise, actionable steps or tips,"
+        " Your job is to help users understand HOW TO USE THE APP - where to click, what buttons to use, how to navigate."
+        " ALWAYS use the provided knowledge base context to answer questions about app features."
+        " If the context contains relevant information, you MUST use it to provide specific, step-by-step instructions."
+        " Respond conversationally: acknowledge their question, then give 3–5 concise, actionable steps with specific UI elements (buttons, pages, menus),"
         " and end with a helpful follow-up question."
-        " Focus on practical how-to guidance and feature explanations."
+        " Focus on practical how-to guidance: WHERE to go, WHAT to click, HOW to complete tasks in the app."
+        " Do not provide generic networking advice - focus on app usage instructions."
         " Do not paste long passages, file structures, or directory listings; summarize in your own words."
         " Ignore any file structure or directory listing content in the context."
     )
     user = (
-        f"Context (top chunks):\n{filtered_context}\n\n"
+        f"Context (top chunks from app help documentation):\n{filtered_context}\n\n"
         f"Intent: {intent}\n"
         f"Template hint (optional): {template_hint}\n\n"
-        f"Question: {query}\n\n"
-        "Please follow the format strictly: opening acknowledgement, 3–5 bullets,"
-        " optional tiny template, and a follow-up question."
+        f"User Question: {query}\n\n"
+        "IMPORTANT: The user is asking about how to use the Ripple app. Use the context above to provide specific, step-by-step instructions."
+        " Focus on WHERE to click, WHAT buttons to use, and HOW to navigate the app."
+        " Please follow the format: opening acknowledgement, 3–5 actionable steps/bullets, and a follow-up question."
         " Do NOT include file structures, directory listings, or folder paths in your response."
+        " If the context doesn't contain relevant information, say so and provide general guidance."
     )
     return [
         {"role": "system", "content": system},
