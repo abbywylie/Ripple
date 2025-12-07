@@ -303,6 +303,7 @@ const ProgressPage = () => {
             </div>
           </CardContent>
         </Card>
+        </TooltipTrigger>
         {tooltipsEnabled && (
           <TooltipContent>
             <p className="font-semibold mb-1">Monthly Growth</p>
