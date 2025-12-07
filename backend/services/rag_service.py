@@ -3,6 +3,7 @@ RAG (Retrieval-Augmented Generation) Service
 Helps students with networking and recruiting questions using the recruiting tracker template
 """
 import os
+import re
 from typing import List, Dict, Optional, Tuple
 from pathlib import Path
 from dotenv import load_dotenv
@@ -304,10 +305,12 @@ def _format_conversational(query: str, answer_text: str) -> str:
 def _acknowledge(q: str) -> str:
     if not q:
         return "Got it — here’s a quick take."
-    if any(k in q.lower() for k in ["met", "meet", "network", "coffee"]):
-        return "Sounds like you just met someone — nice job taking initiative."
+    if any(k in q.lower() for k in ["met", "meet", "network", "coffee", "chat", "call"]):
+        return "Sounds like you’re building relationships — nice job taking initiative."
     if any(k in q.lower() for k in ["email", "intro", "reach", "follow"]):
         return "You’re crafting outreach — let’s keep it brief and specific."
+    if any(k in q.lower() for k in ["interview", "case", "casing"]):
+        return "Great that you’re preparing — let’s get you ready."
     return "Here’s a concise answer based on best practices."
 
 
@@ -315,10 +318,19 @@ def _normalize_bullets(text: str) -> List[str]:
     """
     Extract 3–5 short, actionable bullet points from arbitrary text.
     Cleans markdown headings and leading bullet markers.
+    If no suitable lines are found, falls back to splitting into sentences.
     """
-    lines = [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
+    if not text:
+        return [
+            "Focus on what’s most useful for your goal.",
+            "Keep things simple and clear.",
+            "If you’re unsure, ask one or two clarifying questions.",
+        ]
+
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     bullets: List[str] = []
 
+    # First pass: good-looking lines
     for ln in lines:
         # Strip markdown heading markers like "## "
         while ln.startswith("#"):
@@ -332,18 +344,31 @@ def _normalize_bullets(text: str) -> List[str]:
         if len(bullets) >= 5:
             break
 
+    # Second pass: split into sentences if we still have nothing
+    if not bullets:
+        sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+        for s in sentences:
+            s = s.strip()
+            if 2 <= len(s) <= 150:
+                bullets.append(s)
+            if len(bullets) >= 5:
+                break
+
+    # Final fallback if truly nothing usable
     if not bullets:
         bullets = [
-            "Keep it brief (one screen on mobile).",
-            "Ask 2–3 focused questions.",
-            "Send a thank-you within 24 hours.",
+            "Focus on what’s most useful for your goal.",
+            "Keep things simple and clear.",
+            "If you’re unsure, ask one or two clarifying questions.",
         ]
+
     return bullets[:5]
 
 
 def _maybe_email_template(q: str) -> str:
     ql = q.lower()
-    if any(k in ql for k in ["email", "intro", "follow", "met", "meet"]):
+    # Only show an email template if the user is clearly asking about an email or message
+    if any(k in ql for k in ["email", "subject", "message", "draft"]):
         return (
             "Subject: Great meeting you\n\n"
             "Hi [Name] — great meeting you [today/yesterday] at [event]."
@@ -354,8 +379,9 @@ def _maybe_email_template(q: str) -> str:
 
 
 def _follow_up(q: str) -> str:
-    if any(k in (q or "").lower() for k in ["email", "met", "follow"]):
-        return "Want me to tailor that template to your situation (industry, role, or event)?"
+    ql = (q or "").lower()
+    if any(k in ql for k in ["email", "met", "follow", "message", "thank"]):
+        return "Want me to tailor that template or follow-up plan to your specific situation?"
     return "Want a deeper dive or a tailored example for your context?"
 
 
@@ -400,9 +426,9 @@ def _make_concise_answer(query: str, context: str) -> str:
     # Final fallback: very short summary bullets
     if not selected:
         selected = [
-            "Keep emails brief and specific (one screen on mobile).",
+            "Keep things brief and clear.",
             "Ask 2–3 focused questions; leave room for follow-ups.",
-            "Send thanks within 24 hours and log key notes.",
+            "Send any follow-up within 24 hours when possible.",
         ]
 
     # Limit to 3–5 bullets
@@ -535,21 +561,42 @@ def retrieve_context(query: str, k: int = 5) -> List[Dict[str, str]]:
 def _detect_intent(query: str) -> str:
     """
     Rough intent classification to influence templates and tone.
-    We only treat something as an informational interview if it’s explicitly
-    called that (so regular job interviews don't get that agenda).
+
+    We:
+    - treat something as an informational interview only if explicitly called that
+    - treat email-related intents only when the user clearly mentions email/message
     """
     q = (query or "").lower()
 
+    # Explicit informational interview / coffee chat
     if "informational" in q or "coffee chat" in q:
+        # If they ALSO mention email/message, it's probably an intro email about that chat
+        if any(k in q for k in ["email", "subject", "message", "draft"]):
+            return "email_intro"
         return "informational_interview"
 
-    if any(k in q for k in ["met", "meet", "follow up", "follow-up"]):
-        return "email_intro"
+    # Follow-up / intro email
+    if any(k in q for k in ["email", "subject", "message", "draft"]):
+        if any(
+            kw in q
+            for kw in [
+                "follow up",
+                "follow-up",
+                "following up",
+                "reach out",
+                "reaching out",
+                "intro",
+                "introduction",
+                "met you",
+                "nice to meet",
+            ]
+        ):
+            return "email_intro"
+        if any(kw in q for kw in ["thank", "thanks", "appreciate", "gratitude"]):
+            return "email_thanks"
 
-    if any(k in q for k in ["thank", "thanks"]):
-        return "email_thanks"
-
-    if any(k in q for k in ["tracker", "tier", "outreach"]):
+    # Tracker / pipeline stuff
+    if any(k in q for k in ["tracker", "tier", "outreach", "pipeline"]):
         return "tracker_guidance"
 
     return "general"
@@ -599,29 +646,42 @@ def _build_messages(query: str, context: str, intent: str, template_hint: str):
     Build messages for the chat completion call.
 
     The model:
+    - must answer the user's question first and foremost
     - can use BOTH its own knowledge (trained on internet-scale data)
       and the KB context
     - should prefer KB context when clearly relevant
-    - should answer the question directly if context isn't very helpful
+    - should treat references to "Ripple chatbot" or "chatbot" in the context
+      as instructions for itself, NOT text to repeat to the user
     """
     filtered_context = _filter_context(context)
-    context_block = filtered_context.strip() or "[No strongly relevant context from the knowledge base.]"
+
+    # Make it explicit that context is for reference
+    if filtered_context.strip():
+        context_block = (
+            "Internal playbook snippets (for your reference, do not quote verbatim):\n"
+            f"{filtered_context}"
+        )
+    else:
+        context_block = "[No strongly relevant context from the knowledge base.]"
 
     system = (
-        "You are a friendly, knowledgeable networking and recruiting coach."
+        "You are a friendly, knowledgeable networking and recruiting coach for college students."
+        " Your top priority is to answer the user's question clearly and practically."
         " You can use both your own knowledge and the provided knowledge base context."
         " Prefer the knowledge base when it is clearly relevant; if it is not, answer from your broader expertise."
-        " Answer clearly and practically, and do NOT simply repeat headings, file names, or directory listings."
+        " Do NOT simply repeat headings, file names, or sentences like 'Ask the Ripple chatbot'."
+        " If the context mentions a 'chatbot' or 'Ripple chatbot', interpret that as instructions for you."
+        " Never tell the user to 'ask the chatbot'—you are the chatbot."
     )
 
     user = (
         f"User question:\n{query}\n\n"
         f"Intent: {intent}\n"
         f"Template hint (optional): {template_hint}\n\n"
-        "Relevant context from the knowledge base (may or may not be useful):\n"
         f"{context_block}\n\n"
-        "Answer the question directly. If the context is not helpful, ignore it."
-        " Do not include raw file paths, directory trees, or code blocks from the context."
+        "Step 1: Think about the user's question and what they are actually trying to do.\n"
+        "Step 2: If the context directly helps, weave its ideas into your answer in your own words.\n"
+        "Step 3: Answer the question directly and concretely. Do not mention file names, folders, or the word 'knowledge base'."
     )
 
     return [
