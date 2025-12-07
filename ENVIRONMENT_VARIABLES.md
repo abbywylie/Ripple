@@ -49,11 +49,14 @@ EXTERNAL_RECOMMENDATION_API_URL=https://ripple-yiue.onrender.com/api/recommendat
 - Already configured with default value
 - Only set if you want to override the default
 
-#### 4. `GROQ_API_KEY` (Optional - for RAG service)
+#### 4. `GROQ_API_KEY` ⚠️ **REQUIRED FOR RAG CHATBOT**
 ```
 GROQ_API_KEY=your-groq-api-key-here
 ```
-- Only needed if using RAG assistant features
+- **Required** for RAG assistant features to work
+- Get your key from: https://console.groq.com
+- **IMPORTANT:** Add this to Render environment variables (NOT in code files!)
+- Your key has been provided - add it to Render Dashboard → Environment Variables
 
 #### 5. `OPENAI_API_KEY` (Optional - for RAG service)
 ```
@@ -88,8 +91,8 @@ VITE_API_BASE_URL=https://ripple-backend-6uou.onrender.com
 - [ ] Update `DATABASE_URL` to Supabase connection string
 - [ ] Set `SECRET_KEY` to a secure random value
 - [ ] Verify `EXTERNAL_RECOMMENDATION_API_URL` is set (optional)
-- [ ] Set `GROQ_API_KEY` if using RAG (optional)
-- [ ] Set `OPENAI_API_KEY` if using RAG (optional)
+- [ ] Set `GROQ_API_KEY` (REQUIRED for RAG chatbot - key provided separately)
+- [ ] Set `OPENAI_API_KEY` if using RAG (optional fallback)
 
 ### Frontend (Vercel)
 - [ ] Verify `VITE_API_BASE_URL` points to correct backend
@@ -106,6 +109,7 @@ VITE_API_BASE_URL=https://ripple-backend-6uou.onrender.com
 5. Add/Update:
    - `DATABASE_URL` = Your Supabase connection string
    - `SECRET_KEY` = Generated secure key
+   - `GROQ_API_KEY` = Your Groq API key (for RAG chatbot - key provided separately)
 6. Click **Save Changes**
 7. Render will automatically redeploy
 

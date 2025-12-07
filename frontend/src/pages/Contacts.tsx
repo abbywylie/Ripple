@@ -1,4 +1,4 @@
-import { Search, Filter, Plus, Mail, Phone, Building2, Calendar, Edit, X, Trash2, CheckSquare, Square, CheckCircle, FileText, AlertCircle, Clock, CheckCircle2, User } from "lucide-react";
+import { Search, Filter, Plus, Mail, Phone, Building2, Calendar, Edit, X, Trash2, CheckSquare, Square, CheckCircle, FileText, AlertCircle, Clock, CheckCircle2, User, HelpCircle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { contactsApi, interactionsApi } from "@/lib/api";
 import { useEffect, useState } from "react";
@@ -641,14 +642,15 @@ const Contacts = () => {
           <h1 className="text-3xl font-bold mb-1">Contacts</h1>
           <p className="text-muted-foreground">Manage your professional network</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-        <Button data-tour="add-contact" className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Contact
-        </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+        <div className="flex gap-4 items-start">
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+          <Button data-tour="add-contact" className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Contact
+          </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Contact</DialogTitle>
               <p className="text-sm text-muted-foreground">Fill in the details below to add a new contact. Only name is required.</p>
@@ -723,7 +725,29 @@ const Contacts = () => {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
-                        <Label htmlFor="category">Category</Label>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="category">Category</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="font-semibold mb-1">Category</p>
+                                <p className="text-xs mb-2">The type of relationship with this contact:</p>
+                                <ul className="text-xs space-y-1 list-disc list-inside">
+                                  <li><strong>Professional:</strong> Work/business contacts</li>
+                                  <li><strong>Personal:</strong> Personal connections</li>
+                                  <li><strong>Academic:</strong> School/university contacts</li>
+                                  <li><strong>Industry:</strong> Industry connections</li>
+                                  <li><strong>Mentor:</strong> Mentors or advisors</li>
+                                  <li><strong>Friend:</strong> Friends</li>
+                                </ul>
+                                <p className="text-xs mt-2 text-muted-foreground">Used to calculate optimal follow-up timing.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <Select value={newContact.category} onValueChange={(value) => {
                           const followUpDate = calculateFollowUpDate(newContact.tier, value);
                           setNewContact({...newContact, category: value, date_next_follow_up: followUpDate});
@@ -742,7 +766,26 @@ const Contacts = () => {
                         </Select>
                       </div>
                       <div className="grid gap-2">
-                        <Label htmlFor="tier">Tier</Label>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="tier">Tier</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="font-semibold mb-1">Tier</p>
+                                <p className="text-xs mb-2">Priority level for follow-up urgency:</p>
+                                <ul className="text-xs space-y-1 list-disc list-inside">
+                                  <li><strong>Tier 1 (Dream):</strong> Highest priority - dream companies, key mentors, critical connections. Follow-up within 1-2 days.</li>
+                                  <li><strong>Tier 2 (Great):</strong> Important opportunities. Follow-up within 2-3 days.</li>
+                                  <li><strong>Tier 3 (Curious):</strong> Exploratory connections. Follow-up within 3-7 days.</li>
+                                </ul>
+                                <p className="text-xs mt-2 text-muted-foreground">Combined with Category to auto-calculate follow-up date.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <Select value={newContact.tier} onValueChange={(value) => {
                           const followUpDate = calculateFollowUpDate(value, newContact.category);
                           setNewContact({...newContact, tier: value, date_next_follow_up: followUpDate});
@@ -763,7 +806,28 @@ const Contacts = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
-                        <Label htmlFor="next_followup">Next Follow-up</Label>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="next_followup">Next Follow-up</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="font-semibold mb-1">Next Follow-up</p>
+                                <p className="text-xs mb-2">The date you should follow up with this contact.</p>
+                                <p className="text-xs mb-2"><strong>Auto-calculated</strong> based on Tier + Category:</p>
+                                <ul className="text-xs space-y-1 list-disc list-inside">
+                                  <li>Tier 1 + Professional: 2 days</li>
+                                  <li>Tier 1 + Mentor: 1 day</li>
+                                  <li>Tier 2 + Professional: 2 days</li>
+                                  <li>Tier 3 + Professional: 3 days</li>
+                                </ul>
+                                <p className="text-xs mt-2 text-muted-foreground">You can override this date manually if needed.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <Input
                           id="next_followup"
                           type="date"
@@ -775,7 +839,27 @@ const Contacts = () => {
                         </p>
                       </div>
                       <div className="grid gap-2">
-                        <Label htmlFor="first_meeting">First Meeting</Label>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="first_meeting">First Meeting</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="font-semibold mb-1">First Meeting</p>
+                                <p className="text-xs mb-2">The date you first met or connected with this person.</p>
+                                <p className="text-xs mb-2"><strong>Why it matters:</strong></p>
+                                <ul className="text-xs space-y-1 list-disc list-inside">
+                                  <li>Tracks relationship timeline</li>
+                                  <li>Helps calculate contact status (Active/Awaiting/Stale)</li>
+                                  <li>Provides relationship history context</li>
+                                </ul>
+                                <p className="text-xs mt-2 text-muted-foreground">Optional but recommended for better tracking.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <Input
                           id="first_meeting"
                           type="date"
@@ -801,6 +885,63 @@ const Contacts = () => {
             </div>
           </DialogContent>
         </Dialog>
+        
+        {/* Example Walkthrough Card */}
+        <Card className="w-80 flex-shrink-0">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4 text-primary" />
+              <CardTitle className="text-sm">Example Walkthrough</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="space-y-2">
+              <p className="font-semibold text-xs text-muted-foreground">Scenario: Meeting a recruiter</p>
+              <div className="space-y-1.5 text-xs">
+                <div className="flex items-start gap-2">
+                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold mt-0.5 flex-shrink-0">1</div>
+                  <div>
+                    <p className="font-medium">Personal Info</p>
+                    <p className="text-muted-foreground">Name: "Sarah Johnson" (required)</p>
+                    <p className="text-muted-foreground">Company: "Google"</p>
+                    <p className="text-muted-foreground">Job Title: "Senior Recruiter"</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold mt-0.5 flex-shrink-0">2</div>
+                  <div>
+                    <p className="font-medium">Follow-up Settings</p>
+                    <p className="text-muted-foreground">Category: "Professional"</p>
+                    <p className="text-muted-foreground">Tier: "Tier 1 (Dream)"</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold mt-0.5 flex-shrink-0">3</div>
+                  <div>
+                    <p className="font-medium">Auto-Calculated</p>
+                    <p className="text-muted-foreground">Next Follow-up: <strong>2 days</strong> from today</p>
+                    <p className="text-xs text-muted-foreground italic">(Tier 1 + Professional = 2 days)</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold mt-0.5 flex-shrink-0">4</div>
+                  <div>
+                    <p className="font-medium">First Meeting</p>
+                    <p className="text-muted-foreground">Set to today's date</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Separator />
+            <div className="bg-muted/50 rounded-md p-2">
+              <p className="text-xs font-medium mb-1">💡 Tip</p>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                Hover over the <HelpCircle className="h-3 w-3" /> icons for detailed explanations of each field.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        </div>
       </div>
 
       {/* Edit Contact Dialog */}
