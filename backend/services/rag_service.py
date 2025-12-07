@@ -523,21 +523,49 @@ def _template_hint(intent: str) -> str:
     return ""
 
 
+def _filter_context(context: str) -> str:
+    """Filter out directory structure listings and file paths from context."""
+    if not context:
+        return context
+    
+    lines = context.splitlines()
+    filtered_lines = []
+    
+    for line in lines:
+        # Skip lines that look like directory structure
+        if any(marker in line for marker in ["│", "├──", "└──", "├", "└"]):
+            continue
+        # Skip lines that are just folder paths
+        if line.strip().endswith("/") and not line.strip().startswith("#"):
+            continue
+        # Skip lines that are mostly dashes or separators
+        if len(line.strip()) > 0 and line.strip().replace("-", "").replace("=", "").replace("_", "").strip() == "":
+            continue
+        filtered_lines.append(line)
+    
+    return "\n".join(filtered_lines)
+
+
 def _build_messages(query: str, context: str, intent: str, template_hint: str):
+    # Filter out any directory structure content from context
+    filtered_context = _filter_context(context)
+    
     system = (
         "You are a friendly, knowledgeable networking coach."
         " Use only the provided knowledge base context."
-        " Respond conversationally: acknowledge the user’s situation, then give 3–5 concise bullets,"
+        " Respond conversationally: acknowledge the user's situation, then give 3–5 concise bullets,"
         " optionally include a tiny template when relevant, and end with a follow-up question."
-        " Do not paste long passages; summarize in your own words."
+        " Do not paste long passages, file structures, or directory listings; summarize in your own words."
+        " Ignore any file structure or directory listing content in the context."
     )
     user = (
-        f"Context (top chunks):\n{context}\n\n"
+        f"Context (top chunks):\n{filtered_context}\n\n"
         f"Intent: {intent}\n"
         f"Template hint (optional): {template_hint}\n\n"
         f"Question: {query}\n\n"
         "Please follow the format strictly: opening acknowledgement, 3–5 bullets,"
         " optional tiny template, and a follow-up question."
+        " Do NOT include file structures, directory listings, or folder paths in your response."
     )
     return [
         {"role": "system", "content": system},
