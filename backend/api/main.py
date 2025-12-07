@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -13,6 +13,7 @@ import datetime
 
 import sys
 import os
+import re
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from services.service_api import create_user, update_user_service, create_contact, update_contact_service, delete_contact_service, create_meeting, update_meeting_service, delete_meeting_service, get_upcoming_meetings_service, get_meetings_for_date_service, get_user_by_email, list_contacts_for_user, list_meetings_for_contact, list_meetings_for_user, get_upcoming_follow_ups_for_user, get_goals_for_user, create_goal, update_goal_service, delete_goal_service, get_goal_steps, create_goal_step, update_goal_step_service, delete_goal_step_service, get_interactions_for_contact, get_interactions_for_user, create_interaction, update_interaction_service, delete_interaction_service, get_overdue_follow_ups_for_user, get_upcoming_follow_ups_interactions_for_user, get_platform_stats, create_or_update_public_profile_service, get_public_profiles_service, get_public_profile_by_user_id_service, delete_public_profile_service
@@ -44,14 +45,16 @@ except ImportError as e:
 app = FastAPI(title="Networking API", version="1.0.0")
 
 # Add CORS middleware FIRST to handle preflight requests
+# Allow production Vercel URL, localhost, and all Vercel preview deployments (*.vercel.app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://ripple-rose.vercel.app",  # Vercel frontend URL
+        "https://ripple-rose.vercel.app",  # Vercel production URL
         "http://localhost:5173",  # Local development
         "http://localhost:8080",  # Local development
         "http://localhost:3000",  # Local development
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",  # Allow all Vercel preview deployments
     allow_credentials=True,
     allow_methods=["*"],  # Allow all methods (GET, POST, OPTIONS, etc.)
     allow_headers=["*"],  # Allow all headers
@@ -60,13 +63,33 @@ app.add_middleware(
 
 # Add global OPTIONS handler for all routes to handle CORS preflight
 @app.options("/{full_path:path}")
-async def options_handler(full_path: str):
+async def options_handler(full_path: str, request: Request):
     """Handle CORS preflight requests for all routes."""
+    # Get the origin from the request
+    origin = request.headers.get("origin", "")
+    
+    # Check if origin is allowed
+    allowed_origins = [
+        "https://ripple-rose.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:8080",
+        "http://localhost:3000",
+    ]
+    
+    # Check if origin matches Vercel preview pattern or is in allowed list
+    is_allowed = (
+        origin in allowed_origins or
+        re.match(r"https://.*\.vercel\.app", origin) is not None
+    )
+    
+    # Return the origin if allowed, otherwise return empty
+    cors_origin = origin if is_allowed else allowed_origins[0] if allowed_origins else "*"
+    
     return JSONResponse(
         status_code=200,
         content={},
         headers={
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": cors_origin,
             "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
             "Access-Control-Allow-Headers": "*",
             "Access-Control-Allow-Credentials": "true",
