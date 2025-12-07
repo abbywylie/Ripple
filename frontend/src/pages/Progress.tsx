@@ -343,6 +343,7 @@ const ProgressPage = () => {
             )}
           </CardContent>
         </Card>
+        </TooltipTrigger>
         {tooltipsEnabled && (
           <TooltipContent>
             <p className="font-semibold mb-1">Category Breakdown</p>
