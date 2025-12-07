@@ -119,9 +119,7 @@ const Reminders = () => {
       const newFollowUpDate = new Date();
       newFollowUpDate.setDate(newFollowUpDate.getDate() + 30);
       
-      await contactsApi.updateContact({
-        contact_id: reminder.contactId,
-        user_id: user.userId,
+      await contactsApi.updateContact(reminder.contactId, {
         date_next_follow_up: newFollowUpDate.toISOString().split('T')[0]
       });
       

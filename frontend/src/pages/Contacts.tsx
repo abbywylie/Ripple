@@ -334,12 +334,14 @@ const Contacts = () => {
   };
 
   const handleUpdateContact = async () => {
-    if (!user?.userId || !editingContact?.name?.trim()) return;
+    if (!user?.userId || !editingContact?.name?.trim() || !editingContact?.contact_id) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
 
     try {
+      // Prepare data without contact_id and user_id (they're in URL path and JWT token)
       const contactData = {
-        contact_id: editingContact.contact_id,
-        user_id: user.userId,
         name: editingContact.name,
         email: editingContact.email || undefined,
         phone_number: editingContact.phone_number || undefined,
@@ -351,17 +353,29 @@ const Contacts = () => {
         date_next_follow_up: editingContact.date_next_follow_up || undefined,
       };
 
-      await contactsApi.updateContact(contactData);
+      // Call API with contact_id as first parameter and data as second
+      await contactsApi.updateContact(editingContact.contact_id, contactData);
+      
+      toast.success(`Contact "${editingContact.name}" updated successfully`);
       
       // Reload contacts
       const updatedContacts = await contactsApi.getContacts(user.userId);
       setContacts(updatedContacts);
       
+      // Update selectedContact if it's the one being edited
+      if (selectedContact?.contact_id === editingContact.contact_id) {
+        const updated = updatedContacts.find((c: any) => c.contact_id === editingContact.contact_id);
+        if (updated) {
+          setSelectedContact(updated);
+        }
+      }
+      
       // Close dialog and reset state
       setIsEditDialogOpen(false);
       setEditingContact(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update contact:', error);
+      toast.error(error.response?.data?.detail || `Failed to update contact: ${editingContact.name}`);
     }
   };
 

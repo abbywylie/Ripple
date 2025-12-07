@@ -158,9 +158,7 @@ const ContactDetail = () => {
     if (!user?.userId) return;
 
     try {
-      await contactsApi.updateContact({
-        contact_id: contact.contact_id,
-        user_id: user.userId,
+      await contactsApi.updateContact(contact.contact_id, {
         date_next_follow_up: followUpDate,
       });
       
@@ -776,8 +774,6 @@ const ContactDetail = () => {
                   // Update contact via API
                   try {
                     await contactsApi.updateContact(contact.contact_id, {
-                      contact_id: contact.contact_id,
-                      user_id: user?.userId || 0,
                       relationship_stage: stage,
                       timeline: JSON.stringify(updatedTimeline),
                       last_interaction_date: new Date().toISOString().split('T')[0]
@@ -829,8 +825,6 @@ const ContactDetail = () => {
                   
                   try {
                     await contactsApi.updateContact(contact.contact_id, {
-                      contact_id: contact.contact_id,
-                      user_id: user?.userId || 0,
                       timeline: JSON.stringify(updatedTimeline)
                     });
                     toast.success('Checklist updated');
