@@ -306,22 +306,30 @@ connect_args_final = connect_args.copy()
 if "supabase" in DATABASE_URL.lower():
     # Force IPv4 connection (Render may have IPv6 issues)
     # Supabase connection pooler is recommended for better reliability
-    connect_args_final["connect_timeout"] = 10  # 10 second timeout
+    connect_args_final["connect_timeout"] = 30  # Increased to 30 seconds for better reliability
+    # Add keepalive settings to maintain connection
+    connect_args_final["keepalives"] = 1
+    connect_args_final["keepalives_idle"] = 30
+    connect_args_final["keepalives_interval"] = 10
+    connect_args_final["keepalives_count"] = 5
 
 engine = create_engine(
     DATABASE_URL, 
     echo=False, 
     future=True,
-    pool_pre_ping=True,  # Verify connections before using them
-    pool_recycle=300,     # Recycle connections after 5 minutes
-    pool_size=5,          # Supabase-optimized: smaller pool for free tier
-    max_overflow=10,      # Allow some overflow connections
+    pool_pre_ping=True,  # Verify connections before using them (checks if connection is alive)
+    pool_recycle=180,    # Recycle connections after 3 minutes (shorter for Supabase free tier)
+    pool_size=2,         # Very small pool for free tier (max 60 direct connections)
+    max_overflow=3,      # Minimal overflow for free tier limits
     connect_args=connect_args_final,
-    pool_reset_on_return='commit'  # Reset connections properly
+    pool_reset_on_return='commit',  # Reset connections properly
+    pool_timeout=20      # Wait up to 20 seconds for a connection from pool
 )
 print(f"✅ Database engine configured")
 if "supabase" in DATABASE_URL.lower():
     print(f"   Target: Supabase PostgreSQL")
+    print(f"   Pool size: 2 (free tier optimized)")
+    print(f"   Connection recycle: 180 seconds")
     print(f"   Note: Connection will be established on first database operation")
     print(f"   💡 Tip: If connection fails, try using Supabase connection pooler URL")
 elif "postgresql" in DATABASE_URL.lower():
@@ -329,6 +337,18 @@ elif "postgresql" in DATABASE_URL.lower():
     print(f"   Note: Connection will be established on first database operation")
 else:
     print(f"   Target: SQLite (local development)")
+
+# Add connection-level settings for better reliability
+@event.listens_for(engine, "connect")
+def _set_connection_settings(dbapi_connection, connection_record):
+    """Set connection-level settings for better reliability."""
+    if "supabase" in DATABASE_URL.lower() or "postgresql" in DATABASE_URL.lower():
+        try:
+            # Set statement timeout to prevent hanging queries
+            with dbapi_connection.cursor() as cursor:
+                cursor.execute("SET statement_timeout = '30s'")
+        except Exception:
+            pass  # Ignore if setting fails
 
 # Ensure SQLite enforces foreign keys (SQLite off by default)
 # PostgreSQL has foreign keys enabled by default, so only run PRAGMA for SQLite
@@ -496,11 +516,26 @@ class get_session:
         self.s = SessionLocal()
         return self.s
     def __exit__(self, exc_type, exc, tb):
-        if exc:
+        try:
+            if exc:
+                self.s.rollback()
+            else:
+                self.s.commit()
+        except Exception as e:
+            # If commit/rollback fails, invalidate the connection
+            print(f"⚠️ Session cleanup error: {e}")
             self.s.rollback()
-        else:
-            self.s.commit()
-        self.s.close()
+        finally:
+            # Always close the session, even if commit/rollback failed
+            try:
+                self.s.close()
+            except Exception as e:
+                print(f"⚠️ Session close error: {e}")
+                # If close fails, invalidate the connection from the pool
+                try:
+                    self.s.bind.invalidate()
+                except:
+                    pass
 
 
 # ---------- USERS ----------

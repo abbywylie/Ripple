@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Ripple Gmail Plugin",
+  "version": "1.0",
+  "description": "Reads Gmail messages and securely sends extracted output for classification.",
+  "permissions": [
+    "identity",
+    "alarms",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.googleapis.com/*",
+    "http://127.0.0.1:5000/*",
+    "http://localhost:5000/*"
+  ],
+  "oauth2": {
+    "client_id": "733537226872-lht3t3a472o1bu4741ormh1fp7pttssh.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/gmail.readonly"
+    ]
+  },
+  "background": {
+    "service_worker": "plugin_backend.js"
+  },
+  "action": {
+    "default_popup": "plugin_popup.html"
+  }
+}
