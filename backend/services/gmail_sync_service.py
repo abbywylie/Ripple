@@ -353,9 +353,13 @@ def sync_gmail_for_user(user_id: int) -> Dict[str, Any]:
         
         # Sync Gmail contacts to main contacts table
         try:
-            _sync_gmail_contacts_to_main_contacts(user_id)
+            print(f"🔄 Starting Gmail contacts sync to main contacts for user {user_id}...")
+            sync_result = _sync_gmail_contacts_to_main_contacts(user_id)
+            print(f"✅ Gmail contacts sync completed: {sync_result}")
         except Exception as e:
-            print(f"Warning: Failed to sync Gmail contacts to main contacts: {e}")
+            print(f"❌ Warning: Failed to sync Gmail contacts to main contacts: {e}")
+            import traceback
+            traceback.print_exc()
             errors.append(f"Contact sync error: {str(e)}")
         
         # Update last sync time
@@ -431,9 +435,11 @@ def _sync_gmail_contacts_to_main_contacts(user_id: int):
             )
             gmail_contacts = gmail_contacts_result.fetchall()
             
+            print(f"📧 Found {len(gmail_contacts)} Gmail contacts for user {user_id}")
+            
             if not gmail_contacts:
-                print(f"No Gmail contacts found for user {user_id}")
-                return
+                print(f"⚠️  No Gmail contacts found for user {user_id} - nothing to sync")
+                return {"synced": 0, "created": 0, "updated": 0}
             
             # Get existing main contacts for this user (by email)
             existing_contacts_result = session.execute(
@@ -528,9 +534,17 @@ def _sync_gmail_contacts_to_main_contacts(user_id: int):
                 
                 synced_count += 1
             
+            result = {
+                "synced": synced_count,
+                "created": created_count,
+                "updated": updated_count
+            }
             print(f"✅ Synced {synced_count} Gmail contacts to main contacts (created: {created_count}, updated: {updated_count})")
+            return result
             
     except Exception as e:
-        print(f"Error syncing Gmail contacts to main contacts: {e}")
+        print(f"❌ Error syncing Gmail contacts to main contacts: {e}")
+        import traceback
+        traceback.print_exc()
         raise
 
