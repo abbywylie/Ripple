@@ -1,1 +1,5 @@
 token.json
+client_secret_test.json
+*.json
+!package.json
+!package-lock.json
