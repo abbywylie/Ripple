@@ -258,36 +258,62 @@ def sync_gmail_for_user(user_id: int) -> Dict[str, Any]:
             gmail_email = user.email.lower().strip()
         
         # Import Gmail plugin processing functions
-        # Try importing from local services directory first, then fallback to GmailPluginRoot
+        # Try multiple import strategies
+        plugin_imported = False
+        import_error_messages = []
+        
+        # Strategy 1: Try relative import (same package)
         try:
-            # Try importing from backend/services (preferred - deployed with backend)
-            from services.gmail_processor import process_message
-            from services.gmail_client import fetch_recent_messages
+            from .gmail_processor import process_message
+            from .gmail_client import fetch_recent_messages
             plugin_imported = True
+            print("✅ Imported Gmail plugin from relative imports")
         except ImportError as e:
-            print(f"Failed to import from services: {e}")
-            # Fallback: Try importing from GmailPluginRoot/automation (for local dev)
-            import sys
-            from pathlib import Path
+            import_error_messages.append(f"Relative import failed: {e}")
             
-            plugin_paths = [
-                Path(__file__).parent.parent.parent / "GmailPluginRoot" / "automation",
-                Path(__file__).parent.parent / "GmailPluginRoot" / "automation",
-            ]
-            
-            plugin_imported = False
-            for plugin_path in plugin_paths:
-                if plugin_path.exists() and str(plugin_path) not in sys.path:
-                    sys.path.insert(0, str(plugin_path))
-                    try:
-                        from processor import process_message
-                        from gmail_client import fetch_recent_messages
-                        plugin_imported = True
-                        break
-                    except ImportError:
-                        continue
+            # Strategy 2: Try absolute import from services package
+            try:
+                from services.gmail_processor import process_message
+                from services.gmail_client import fetch_recent_messages
+                plugin_imported = True
+                print("✅ Imported Gmail plugin from services package")
+            except ImportError as e2:
+                import_error_messages.append(f"Services package import failed: {e2}")
+                
+                # Strategy 3: Try direct import (same directory)
+                try:
+                    from gmail_processor import process_message
+                    from gmail_client import fetch_recent_messages
+                    plugin_imported = True
+                    print("✅ Imported Gmail plugin from direct imports")
+                except ImportError as e3:
+                    import_error_messages.append(f"Direct import failed: {e3}")
+                    
+                    # Strategy 4: Try importing from GmailPluginRoot/automation (for local dev)
+                    import sys
+                    from pathlib import Path
+                    
+                    plugin_paths = [
+                        Path(__file__).parent.parent.parent / "GmailPluginRoot" / "automation",
+                        Path(__file__).parent.parent / "GmailPluginRoot" / "automation",
+                    ]
+                    
+                    for plugin_path in plugin_paths:
+                        if plugin_path.exists() and str(plugin_path) not in sys.path:
+                            sys.path.insert(0, str(plugin_path))
+                            try:
+                                from processor import process_message
+                                from gmail_client import fetch_recent_messages
+                                plugin_imported = True
+                                print(f"✅ Imported Gmail plugin from {plugin_path}")
+                                break
+                            except ImportError as e4:
+                                import_error_messages.append(f"GmailPluginRoot import failed: {e4}")
+                                continue
         
         if not plugin_imported:
+            error_msg = "Gmail plugin modules not found. Import attempts:\n" + "\n".join(import_error_messages)
+            print(f"❌ {error_msg}")
             return {"success": False, "error": "Gmail plugin modules not found. Please ensure Gmail plugin files are in backend/services/ or GmailPluginRoot/automation exists."}
         
         # Fetch recent messages
