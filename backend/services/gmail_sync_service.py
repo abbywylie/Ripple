@@ -13,8 +13,9 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from models.database_functions import get_session, User
-from sqlalchemy import text
+from models.database_functions import get_session, User, Contact
+from services.service_api import create_contact, update_contact_service
+from sqlalchemy import text, select
 
 # Gmail API scopes
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
@@ -313,6 +314,13 @@ def sync_gmail_for_user(user_id: int) -> Dict[str, Any]:
             except Exception as e:
                 errors.append(str(e))
         
+        # Sync Gmail contacts to main contacts table
+        try:
+            _sync_gmail_contacts_to_main_contacts(user_id)
+        except Exception as e:
+            print(f"Warning: Failed to sync Gmail contacts to main contacts: {e}")
+            errors.append(f"Contact sync error: {str(e)}")
+        
         # Update last sync time
         with get_session() as session:
             session.execute(
@@ -365,4 +373,126 @@ def get_gmail_sync_status(user_id: int) -> Dict[str, Any]:
             "last_sync": last_sync,
             "connected_at": row[2].isoformat() if row[2] else None
         }
+
+
+def _sync_gmail_contacts_to_main_contacts(user_id: int):
+    """
+    Sync Gmail contacts to main contacts table.
+    Creates or updates contacts in the main contacts table based on Gmail contacts.
+    """
+    try:
+        with get_session() as session:
+            # Get all Gmail contacts for this user
+            gmail_contacts_result = session.execute(
+                text("""
+                    SELECT email, name, last_contact_ts
+                    FROM gmail_contacts
+                    WHERE user_id = :user_id
+                    ORDER BY last_contact_ts DESC
+                """),
+                {"user_id": user_id}
+            )
+            gmail_contacts = gmail_contacts_result.fetchall()
+            
+            if not gmail_contacts:
+                print(f"No Gmail contacts found for user {user_id}")
+                return
+            
+            # Get existing main contacts for this user (by email)
+            existing_contacts_result = session.execute(
+                select(Contact).where(Contact.user_id == user_id)
+            )
+            existing_contacts = {c.email.lower(): c for c in existing_contacts_result.scalars().all() if c.email}
+            
+            # Get Gmail threads to link thread_id to contacts
+            threads_result = session.execute(
+                text("""
+                    SELECT DISTINCT contact_email, thread_id
+                    FROM gmail_threads
+                    WHERE user_id = :user_id AND is_networking = true
+                """),
+                {"user_id": user_id}
+            )
+            thread_map = {row[0].lower(): row[1] for row in threads_result.fetchall() if row[0]}
+            
+            synced_count = 0
+            created_count = 0
+            updated_count = 0
+            
+            for gmail_email, gmail_name, last_contact_ts in gmail_contacts:
+                if not gmail_email:
+                    continue
+                
+                email_lower = gmail_email.lower()
+                gmail_thread_id = thread_map.get(email_lower)
+                
+                # Convert timestamp to date if available
+                last_interaction_date = None
+                if last_contact_ts:
+                    try:
+                        last_interaction_date = datetime.fromtimestamp(last_contact_ts / 1000).date().isoformat()
+                    except:
+                        pass
+                
+                # Check if contact already exists
+                if email_lower in existing_contacts:
+                    # Update existing contact
+                    existing_contact = existing_contacts[email_lower]
+                    update_data = {}
+                    
+                    # Update name if Gmail has a better name
+                    if gmail_name and gmail_name.strip() and (not existing_contact.name or existing_contact.name.strip() == ""):
+                        update_data["name"] = gmail_name.strip()
+                    
+                    # Update gmail_thread_id if we have one
+                    if gmail_thread_id and not existing_contact.gmail_thread_id:
+                        update_data["gmail_thread_id"] = gmail_thread_id
+                    
+                    # Update last_interaction_date if newer
+                    if last_interaction_date:
+                        if not existing_contact.last_interaction_date or (
+                            existing_contact.last_interaction_date and 
+                            datetime.fromisoformat(last_interaction_date) > existing_contact.last_interaction_date
+                        ):
+                            update_data["last_interaction_date"] = last_interaction_date
+                    
+                    if update_data:
+                        try:
+                            update_contact_service(
+                                contact_id=existing_contact.contact_id,
+                                user_id=user_id,
+                                **update_data
+                            )
+                            updated_count += 1
+                        except Exception as e:
+                            print(f"Error updating contact {existing_contact.contact_id}: {e}")
+                else:
+                    # Create new contact
+                    try:
+                        contact_dict = create_contact(
+                            user_id=user_id,
+                            name=gmail_name.strip() if gmail_name and gmail_name.strip() else gmail_email.split("@")[0],
+                            email=gmail_email,
+                            category="Professional",  # Default category
+                        )
+                        
+                        # Update with Gmail-specific fields if needed
+                        if gmail_thread_id or last_interaction_date:
+                            update_contact_service(
+                                contact_id=contact_dict["contact_id"],
+                                user_id=user_id,
+                                gmail_thread_id=gmail_thread_id,
+                                last_interaction_date=last_interaction_date,
+                            )
+                        created_count += 1
+                    except Exception as e:
+                        print(f"Error creating contact for {gmail_email}: {e}")
+                
+                synced_count += 1
+            
+            print(f"✅ Synced {synced_count} Gmail contacts to main contacts (created: {created_count}, updated: {updated_count})")
+            
+    except Exception as e:
+        print(f"Error syncing Gmail contacts to main contacts: {e}")
+        raise
 
