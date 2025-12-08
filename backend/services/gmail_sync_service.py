@@ -3,6 +3,8 @@
 
 import os
 import json
+import threading
+import time
 from typing import Optional, Dict, Any
 from datetime import datetime
 from pathlib import Path
@@ -591,4 +593,104 @@ def _sync_gmail_contacts_to_main_contacts(user_id: int):
         import traceback
         traceback.print_exc()
         raise
+
+
+# ============================================================================
+# Background Sync Service (runs every 5 minutes)
+# ============================================================================
+
+_background_sync_thread: Optional[threading.Thread] = None
+_background_sync_running = False
+_background_sync_lock = threading.Lock()
+
+
+def _sync_all_users_with_gmail():
+    """Sync Gmail for all users who have OAuth connected."""
+    try:
+        with get_session() as session:
+            # Get all users with Gmail OAuth tokens
+            result = session.execute(
+                text("SELECT DISTINCT user_id FROM gmail_oauth_tokens")
+            )
+            user_ids = [row[0] for row in result.fetchall()]
+        
+        if not user_ids:
+            print("📧 Background sync: No users with Gmail OAuth connected")
+            return
+        
+        print(f"📧 Background sync: Syncing Gmail for {len(user_ids)} user(s)")
+        
+        for user_id in user_ids:
+            try:
+                print(f"  🔄 Syncing Gmail for user {user_id}...")
+                result = sync_gmail_for_user(user_id)
+                if result.get("success"):
+                    print(f"  ✅ User {user_id}: Processed {result.get('messages_processed', 0)} messages, found {result.get('networking_messages', 0)} networking emails")
+                else:
+                    print(f"  ⚠️  User {user_id}: Sync failed - {result.get('error', 'Unknown error')}")
+            except Exception as e:
+                print(f"  ❌ User {user_id}: Error during sync - {e}")
+                # Continue with other users even if one fails
+                continue
+        
+        print(f"✅ Background sync completed for {len(user_ids)} user(s)")
+    
+    except Exception as e:
+        print(f"❌ Background sync error: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def _background_sync_loop():
+    """Background sync loop that runs every 5 minutes."""
+    global _background_sync_running
+    
+    while _background_sync_running:
+        try:
+            _sync_all_users_with_gmail()
+        except Exception as e:
+            print(f"❌ Error in background sync loop: {e}")
+        
+        # Wait 5 minutes (300 seconds) before next sync
+        # Check _background_sync_running every 10 seconds to allow graceful shutdown
+        for _ in range(30):  # 30 * 10 seconds = 5 minutes
+            if not _background_sync_running:
+                break
+            time.sleep(10)
+
+
+def start_background_sync():
+    """Start the background Gmail sync service (runs every 5 minutes)."""
+    global _background_sync_thread, _background_sync_running
+    
+    with _background_sync_lock:
+        if _background_sync_running:
+            print("⚠️  Background sync is already running")
+            return
+        
+        _background_sync_running = True
+        _background_sync_thread = threading.Thread(
+            target=_background_sync_loop,
+            daemon=True,  # Thread will exit when main process exits
+            name="GmailBackgroundSync"
+        )
+        _background_sync_thread.start()
+        print("✅ Background Gmail sync started (runs every 5 minutes)")
+
+
+def stop_background_sync():
+    """Stop the background Gmail sync service."""
+    global _background_sync_thread, _background_sync_running
+    
+    with _background_sync_lock:
+        if not _background_sync_running:
+            return
+        
+        print("🛑 Stopping background Gmail sync...")
+        _background_sync_running = False
+        
+        if _background_sync_thread and _background_sync_thread.is_alive():
+            _background_sync_thread.join(timeout=10)  # Wait up to 10 seconds for thread to finish
+        
+        print("✅ Background Gmail sync stopped")
 

@@ -46,7 +46,9 @@ try:
         get_authorization_url,
         handle_oauth_callback,
         sync_gmail_for_user,
-        get_gmail_sync_status as get_gmail_oauth_status
+        get_gmail_sync_status as get_gmail_oauth_status,
+        start_background_sync,
+        stop_background_sync
     )
 except ImportError as e:
     print(f"Warning: gmail_sync_service not available: {e}")
@@ -54,8 +56,8 @@ except ImportError as e:
     handle_oauth_callback = None
     sync_gmail_for_user = None
     get_gmail_oauth_status = None
-
-# Background sync removed - using manual sync only to save API calls
+    start_background_sync = None
+    stop_background_sync = None
 
 
 app = FastAPI(title="Networking API", version="1.0.0")
@@ -1490,4 +1492,25 @@ def root(code: Optional[str] = None, state: Optional[str] = None):
     
     # Fallback if frontend not built
     return {"message": "Frontend not built. Run 'npm run build' in the frontend directory."}
+
+
+# Startup and Shutdown Events
+@app.on_event("startup")
+async def startup_event():
+    """Start background services on application startup."""
+    if start_background_sync:
+        try:
+            start_background_sync()
+        except Exception as e:
+            print(f"Warning: Failed to start background Gmail sync: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop background services on application shutdown."""
+    if stop_background_sync:
+        try:
+            stop_background_sync()
+        except Exception as e:
+            print(f"Warning: Failed to stop background Gmail sync: {e}")
 
