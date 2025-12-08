@@ -513,9 +513,11 @@ def _sync_gmail_contacts_to_main_contacts(user_id: int):
                 else:
                     # Create new contact
                     try:
+                        contact_name = gmail_name.strip() if gmail_name and gmail_name.strip() else gmail_email.split("@")[0]
+                        print(f"  ➕ Creating new contact: {contact_name} ({gmail_email})")
                         contact_dict = create_contact(
                             user_id=user_id,
-                            name=gmail_name.strip() if gmail_name and gmail_name.strip() else gmail_email.split("@")[0],
+                            name=contact_name,
                             email=gmail_email,
                             category="Professional",  # Default category
                         )
@@ -529,8 +531,11 @@ def _sync_gmail_contacts_to_main_contacts(user_id: int):
                                 last_interaction_date=last_interaction_date,
                             )
                         created_count += 1
+                        print(f"  ✅ Created contact {contact_dict['contact_id']} for {gmail_email}")
                     except Exception as e:
-                        print(f"Error creating contact for {gmail_email}: {e}")
+                        print(f"  ❌ Error creating contact for {gmail_email}: {e}")
+                        import traceback
+                        traceback.print_exc()
                 
                 synced_count += 1
             
