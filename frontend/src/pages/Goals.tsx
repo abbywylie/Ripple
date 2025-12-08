@@ -34,7 +34,7 @@ const Goals = () => {
       if (user?.userId) {
         try {
           const goalsData = await goalsApi.getGoals(user.userId);
-          setGoals(goalsData);
+          await removeCompletedGoals(goalsData);
         } catch (error) {
           console.error('Failed to load goals:', error);
           setGoals([]);
@@ -69,7 +69,7 @@ const Goals = () => {
       
       // Reload goals
       const updatedGoals = await goalsApi.getGoals(user.userId);
-      setGoals(updatedGoals);
+      await removeCompletedGoals(updatedGoals);
       
       // Reset form and close dialog
       setNewGoal({
@@ -111,7 +111,7 @@ const Goals = () => {
       
       // Reload goals
       const updatedGoals = await goalsApi.getGoals(user.userId);
-      setGoals(updatedGoals);
+      await removeCompletedGoals(updatedGoals);
       
       // Close dialog and reset state
       setIsEditDialogOpen(false);
@@ -133,7 +133,7 @@ const Goals = () => {
       
       // Reload goals
       const updatedGoals = await goalsApi.getGoals(user.userId);
-      setGoals(updatedGoals);
+      await removeCompletedGoals(updatedGoals);
     } catch (error) {
       console.error('Failed to delete goal:', error);
     }
@@ -152,7 +152,7 @@ const Goals = () => {
       
       // Reload goals to get updated steps
       const updatedGoals = await goalsApi.getGoals(user.userId);
-      setGoals(updatedGoals);
+      await removeCompletedGoals(updatedGoals);
     } catch (error) {
       console.error('Failed to toggle step:', error);
     }
@@ -172,7 +172,7 @@ const Goals = () => {
       
       // Reload goals
       const updatedGoals = await goalsApi.getGoals(user.userId);
-      setGoals(updatedGoals);
+      await removeCompletedGoals(updatedGoals);
     } catch (error) {
       console.error('Failed to add step:', error);
     }
@@ -189,6 +189,34 @@ const Goals = () => {
 
   // Derived completion state so UI can reflect accomplished goals even if status wasn't manually updated
   const isGoalCompleted = (goal: any) => calculateProgress(goal) === 100;
+
+  // Remove completed goals from the list (auto-cleanup) and keep UI in sync
+  const removeCompletedGoals = async (goalsList: any[]) => {
+    if (!user?.userId) {
+      setGoals(goalsList);
+      return;
+    }
+
+    const completed = goalsList.filter((g) => isGoalCompleted(g));
+    if (completed.length === 0) {
+      setGoals(goalsList);
+      return;
+    }
+
+    // Delete completed goals
+    await Promise.allSettled(
+      completed.map((goal) =>
+        goalsApi.deleteGoal({
+          goal_id: goal.goal_id,
+          user_id: user.userId,
+        })
+      )
+    );
+
+    // Refresh list after deletion
+    const refreshed = await goalsApi.getGoals(user.userId);
+    setGoals(refreshed);
+  };
 
   // Calculate stats
   const activeGoalsCount = goals.filter(g => !isGoalCompleted(g)).length;
