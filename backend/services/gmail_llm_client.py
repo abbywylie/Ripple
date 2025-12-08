@@ -36,9 +36,15 @@ if not OPENAI_API_KEY:
 
 _client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
-_CLASSIFY_MODEL = OPENAI_CLASSIFY_MODEL_NAME or "gpt-4.1"
+_CLASSIFY_MODEL = OPENAI_CLASSIFY_MODEL_NAME or "gpt-4.1-mini"  # Default matches GmailPluginRoot/automation/config.py
 _SUMMARY_MODEL  = OPENAI_SUMMARY_MODEL_NAME or _CLASSIFY_MODEL
 _MEETING_MODEL  = OPENAI_MEETING_MODEL_NAME or _SUMMARY_MODEL
+
+# Log model configuration on import
+if _client:
+    print(f"✅ Gmail LLM Client initialized with model: {_CLASSIFY_MODEL}")
+else:
+    print(f"⚠️  Gmail LLM Client: OPENAI_API_KEY not set, classification will be disabled")
 
 
 # -----------------------
@@ -290,6 +296,7 @@ def _prepare_body_for_llm(body: str, max_chars: int = 3750) -> str:
 
 def classify_and_summarize(subject: str, body: str) -> Tuple[bool, str]:
     if not OPENAI_API_KEY or _client is None:
+        print(f"  ⚠️  Classification skipped: OPENAI_API_KEY or client is None")
         return False, ""
     prepared = _prepare_body_for_llm(body or "")
     prompt = CLASSIFY_PROMPT.format(
@@ -297,24 +304,30 @@ def classify_and_summarize(subject: str, body: str) -> Tuple[bool, str]:
         body=prepared or "(no body)",
     )
     try:
+        print(f"  🤖 Calling OpenAI API with model: {_CLASSIFY_MODEL}")
         resp = _client.chat.completions.create(
             model=_CLASSIFY_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
         )
         raw = resp.choices[0].message.content.strip()
-    except Exception:
+        print(f"  📥 OpenAI raw response: {raw[:200]}...")  # Log first 200 chars
+    except Exception as e:
+        print(f"  ❌ OpenAI API error: {type(e).__name__}: {str(e)}")
         return False, ""
     json_text = _extract_first_valid_json(raw)
     if not json_text:
+        print(f"  ⚠️  Failed to extract JSON from response. Raw: {raw[:200]}...")
         return False, ""
     try:
         parsed = json.loads(json_text)
-    except Exception:
+        networking = bool(parsed.get("networking", False))
+        summary = parsed.get("summary", "") if networking else ""
+        print(f"  📊 Parsed result: networking={networking}, summary='{summary[:50]}...'")
+        return networking, summary.strip()[:400]
+    except Exception as e:
+        print(f"  ❌ JSON parse error: {type(e).__name__}: {str(e)}. JSON text: {json_text[:200]}...")
         return False, ""
-    networking = bool(parsed.get("networking", False))
-    summary = parsed.get("summary", "") if networking else ""
-    return networking, summary.strip()[:400]
 
 
 def summarize_email(subject: str, body: str) -> str:
