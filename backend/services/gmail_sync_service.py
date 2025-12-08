@@ -262,37 +262,41 @@ def sync_gmail_for_user(user_id: int) -> Dict[str, Any]:
         plugin_imported = False
         import_error_messages = []
         
-        # Strategy 1: Try relative import (same package)
+        # Add services directory to Python path to ensure imports work
+        import sys
+        from pathlib import Path
+        services_dir = Path(__file__).parent
+        if str(services_dir) not in sys.path:
+            sys.path.insert(0, str(services_dir))
+        
+        # Strategy 1: Try direct import (same directory, most reliable)
         try:
-            from .gmail_processor import process_message
-            from .gmail_client import fetch_recent_messages
+            from gmail_processor import process_message
+            from gmail_client import fetch_recent_messages
             plugin_imported = True
-            print("✅ Imported Gmail plugin from relative imports")
+            print("✅ Imported Gmail plugin from direct imports")
         except ImportError as e:
-            import_error_messages.append(f"Relative import failed: {e}")
+            import_error_messages.append(f"Direct import failed: {e}")
             
-            # Strategy 2: Try absolute import from services package
+            # Strategy 2: Try relative import (same package)
             try:
-                from services.gmail_processor import process_message
-                from services.gmail_client import fetch_recent_messages
+                from .gmail_processor import process_message
+                from .gmail_client import fetch_recent_messages
                 plugin_imported = True
-                print("✅ Imported Gmail plugin from services package")
+                print("✅ Imported Gmail plugin from relative imports")
             except ImportError as e2:
-                import_error_messages.append(f"Services package import failed: {e2}")
+                import_error_messages.append(f"Relative import failed: {e2}")
                 
-                # Strategy 3: Try direct import (same directory)
+                # Strategy 3: Try absolute import from services package
                 try:
-                    from gmail_processor import process_message
-                    from gmail_client import fetch_recent_messages
+                    from services.gmail_processor import process_message
+                    from services.gmail_client import fetch_recent_messages
                     plugin_imported = True
-                    print("✅ Imported Gmail plugin from direct imports")
+                    print("✅ Imported Gmail plugin from services package")
                 except ImportError as e3:
-                    import_error_messages.append(f"Direct import failed: {e3}")
+                    import_error_messages.append(f"Services package import failed: {e3}")
                     
                     # Strategy 4: Try importing from GmailPluginRoot/automation (for local dev)
-                    import sys
-                    from pathlib import Path
-                    
                     plugin_paths = [
                         Path(__file__).parent.parent.parent / "GmailPluginRoot" / "automation",
                         Path(__file__).parent.parent / "GmailPluginRoot" / "automation",
