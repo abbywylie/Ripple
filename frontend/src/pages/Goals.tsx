@@ -186,6 +186,36 @@ const Goals = () => {
     return Math.round((completedSteps / steps.length) * 100);
   };
 
+  // Auto-mark goal as completed when progress reaches 100%
+  useEffect(() => {
+    const markCompletedGoals = async () => {
+      if (!user?.userId) return;
+
+      const toComplete = goals.filter((g) => {
+        const progress = calculateProgress(g);
+        return g.status !== 'Completed' && progress === 100;
+      });
+
+      if (toComplete.length === 0) return;
+
+      await Promise.allSettled(
+        toComplete.map((goal) =>
+          goalsApi.updateGoal({
+            goal_id: goal.goal_id,
+            user_id: user.userId,
+            status: 'Completed',
+          })
+        )
+      );
+
+      // Refresh after updates
+      const refreshed = await goalsApi.getGoals(user.userId);
+      setGoals(refreshed);
+    };
+
+    markCompletedGoals();
+  }, [goals, user?.userId]);
+
   // Calculate stats
   const activeGoalsCount = goals.filter(g => g.status === 'In Progress').length;
   const completedGoalsCount = goals.filter(g => g.status === 'Completed').length;
