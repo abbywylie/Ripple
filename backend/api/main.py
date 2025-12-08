@@ -1206,12 +1206,13 @@ def get_gmail_threads(
         
         with get_session() as session:
             if contact_email:
+                # Use case-insensitive matching for email
                 result = session.execute(
                     text("""
                         SELECT thread_id, contact_email, subject, is_networking,
                                first_message_ts, last_updated_ts, meeting_scheduled
                         FROM gmail_threads
-                        WHERE user_id = :user_id AND contact_email = :contact_email
+                        WHERE user_id = :user_id AND LOWER(contact_email) = LOWER(:contact_email)
                         ORDER BY last_updated_ts DESC NULLS LAST
                     """),
                     {"user_id": user_id, "contact_email": contact_email}
