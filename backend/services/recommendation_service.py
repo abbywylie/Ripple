@@ -61,6 +61,7 @@ def call_external_recommendation_api(
         }
         
         print(f"[Recommendation] Calling external API: {EXTERNAL_RECOMMENDATION_API_URL}")
+        console.log("running external recommendation")
         print(f"[Recommendation] Payload: user_id={user_id}, connections={len(connections_data)}")
         
         response = requests.post(
