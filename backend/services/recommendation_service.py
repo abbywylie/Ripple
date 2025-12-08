@@ -101,6 +101,7 @@ def call_external_recommendation_api(
             
     except requests.exceptions.Timeout:
         print(f"[Recommendation] External API request timed out after 30 seconds")
+        console.error("Switched to backup recommendation feature.")
         return None
     except requests.exceptions.RequestException as e:
         print(f"[Recommendation] External API request failed: {e}")
