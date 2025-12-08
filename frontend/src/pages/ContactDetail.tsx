@@ -1119,7 +1119,7 @@ const ContactDetail = () => {
           <MeetingList 
             contactId={parseInt(contactId)} 
             userId={user.userId}
-            onDeleteMeeting={handleDeleteMeeting} 
+            //onDeleteMeeting={handleDeleteMeeting} 
             onMeetingChange={() => {
               // Optionally reload contact data if needed
             }}
