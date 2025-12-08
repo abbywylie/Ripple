@@ -61,6 +61,7 @@ def call_external_recommendation_api(
         }
         
         print(f"[Recommendation] Calling external API: {EXTERNAL_RECOMMENDATION_API_URL}")
+        console.log("running external recommendation")
         print(f"[Recommendation] Payload: user_id={user_id}, connections={len(connections_data)}")
         
         response = requests.post(
@@ -101,6 +102,7 @@ def call_external_recommendation_api(
             
     except requests.exceptions.Timeout:
         print(f"[Recommendation] External API request timed out after 30 seconds")
+        console.error("Switched to backup recommendation feature.")
         return None
     except requests.exceptions.RequestException as e:
         print(f"[Recommendation] External API request failed: {e}")
