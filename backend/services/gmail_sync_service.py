@@ -487,10 +487,11 @@ def _sync_gmail_contacts_to_main_contacts(user_id: int):
                     
                     # Update last_interaction_date if newer
                     if last_interaction_date:
-                        if not existing_contact.last_interaction_date or (
-                            existing_contact.last_interaction_date and 
-                            datetime.fromisoformat(last_interaction_date) > existing_contact.last_interaction_date
-                        ):
+                        # Convert to date for comparison
+                        new_date = datetime.fromisoformat(last_interaction_date).date() if isinstance(last_interaction_date, str) else last_interaction_date
+                        existing_date = existing_contact.last_interaction_date
+                        
+                        if not existing_date or (new_date > existing_date):
                             update_data["last_interaction_date"] = last_interaction_date
                     
                     if update_data:
