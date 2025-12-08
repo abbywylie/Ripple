@@ -29,7 +29,10 @@ const parseLocalDate = (dateString: string): Date | null => {
     const cleanDate = dateString.split('T')[0];
     const dateParts = cleanDate.split('-');
     if (dateParts.length === 3) {
-      return new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+      const year = parseInt(dateParts[0]);
+      const monthIndex = parseInt(dateParts[1])-1;
+      const day = parseInt(dateParts[2]);
+      return new Date(Date.UTC(year, monthIndex, day));
     }
     return new Date(dateString);
   } catch {
