@@ -3,9 +3,10 @@ import traceback
 from typing import Dict, Any, Optional, Tuple
 
 # Import from local directory (backend/services)
+# Try multiple import strategies for compatibility
 try:
-    # Try importing from same directory (when in backend/services)
-    from .gmail_db import (
+    # Strategy 1: Absolute import from services package
+    from services.gmail_db import (
         message_exists,
         upsert_contact,
         upsert_thread,
@@ -17,11 +18,11 @@ try:
         get_user_id_from_email,
         is_gmail_email,
     )
-    from .gmail_client import fetch_thread_full, get_gmail_service
-    from .gmail_llm_client import classify_and_summarize, summarize_email, analyze_thread_for_meeting_full_emails
+    from services.gmail_client import fetch_thread_full, get_gmail_service
+    from services.gmail_llm_client import classify_and_summarize, summarize_email, analyze_thread_for_meeting_full_emails
 except ImportError:
     try:
-        # Try importing without dot (absolute import)
+        # Strategy 2: Direct import from same directory
         from gmail_db import (
             message_exists,
             upsert_contact,
@@ -37,7 +38,7 @@ except ImportError:
         from gmail_client import fetch_thread_full, get_gmail_service
         from gmail_llm_client import classify_and_summarize, summarize_email, analyze_thread_for_meeting_full_emails
     except ImportError:
-        # Fallback to original imports if running from GmailPluginRoot
+        # Strategy 3: Fallback to original imports if running from GmailPluginRoot
         from db import (
             message_exists,
             upsert_contact,
