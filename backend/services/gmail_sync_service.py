@@ -469,27 +469,36 @@ def _sync_gmail_contacts_to_main_contacts(user_id: int):
                 email_lower = gmail_email.lower()
                 gmail_thread_id = thread_map.get(email_lower)
                 
+                print(f"  🔍 Processing Gmail contact: {gmail_email} (name: {gmail_name})")
+                
                 # Convert timestamp to date if available
                 last_interaction_date = None
                 if last_contact_ts:
                     try:
                         last_interaction_date = datetime.fromtimestamp(last_contact_ts / 1000).date().isoformat()
+                        print(f"     Last contact timestamp: {last_contact_ts} -> {last_interaction_date}")
                     except:
                         pass
                 
                 # Check if contact already exists
                 if email_lower in existing_contacts:
+                    print(f"  ✓ Contact already exists in main contacts table")
                     # Update existing contact
                     existing_contact = existing_contacts[email_lower]
                     update_data = {}
                     
+                    print(f"     Existing contact ID: {existing_contact.contact_id}, name: {existing_contact.name}")
+                    print(f"     Gmail thread_id: {gmail_thread_id}, existing gmail_thread_id: {existing_contact.gmail_thread_id}")
+                    
                     # Update name if Gmail has a better name
                     if gmail_name and gmail_name.strip() and (not existing_contact.name or existing_contact.name.strip() == ""):
                         update_data["name"] = gmail_name.strip()
+                        print(f"     Will update name to: {gmail_name.strip()}")
                     
                     # Update gmail_thread_id if we have one
                     if gmail_thread_id and not existing_contact.gmail_thread_id:
                         update_data["gmail_thread_id"] = gmail_thread_id
+                        print(f"     Will update gmail_thread_id to: {gmail_thread_id}")
                     
                     # Update last_interaction_date if newer
                     if last_interaction_date:
@@ -497,10 +506,14 @@ def _sync_gmail_contacts_to_main_contacts(user_id: int):
                         new_date = datetime.fromisoformat(last_interaction_date).date() if isinstance(last_interaction_date, str) else last_interaction_date
                         existing_date = existing_contact.last_interaction_date
                         
+                        print(f"     New date: {new_date}, existing date: {existing_date}")
+                        
                         if not existing_date or (new_date > existing_date):
                             update_data["last_interaction_date"] = last_interaction_date
+                            print(f"     Will update last_interaction_date to: {last_interaction_date}")
                     
                     if update_data:
+                        print(f"  🔄 Updating contact with: {update_data}")
                         try:
                             update_contact_service(
                                 contact_id=existing_contact.contact_id,
@@ -508,22 +521,30 @@ def _sync_gmail_contacts_to_main_contacts(user_id: int):
                                 **update_data
                             )
                             updated_count += 1
+                            print(f"  ✅ Updated contact {existing_contact.contact_id}")
                         except Exception as e:
-                            print(f"Error updating contact {existing_contact.contact_id}: {e}")
+                            print(f"  ❌ Error updating contact {existing_contact.contact_id}: {e}")
+                            import traceback
+                            traceback.print_exc()
+                    else:
+                        print(f"  ⚠️  No updates needed for contact {existing_contact.contact_id}")
                 else:
                     # Create new contact
+                    print(f"  ➕ Contact does NOT exist in main contacts - will create new one")
                     try:
                         contact_name = gmail_name.strip() if gmail_name and gmail_name.strip() else gmail_email.split("@")[0]
-                        print(f"  ➕ Creating new contact: {contact_name} ({gmail_email})")
+                        print(f"     Creating contact: {contact_name} ({gmail_email})")
                         contact_dict = create_contact(
                             user_id=user_id,
                             name=contact_name,
                             email=gmail_email,
                             category="Professional",  # Default category
                         )
+                        print(f"     Contact created with ID: {contact_dict.get('contact_id')}")
                         
                         # Update with Gmail-specific fields if needed
                         if gmail_thread_id or last_interaction_date:
+                            print(f"     Updating with Gmail fields: thread_id={gmail_thread_id}, last_interaction_date={last_interaction_date}")
                             update_contact_service(
                                 contact_id=contact_dict["contact_id"],
                                 user_id=user_id,
