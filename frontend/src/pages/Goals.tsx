@@ -217,7 +217,7 @@ const Goals = () => {
 
     markCompletedGoals();
   }, [goals, user?.userId]);
-=======
+
   // Derived completion state so UI can reflect accomplished goals even if status wasn't manually updated
   const isGoalCompleted = (goal: any) => calculateProgress(goal) === 100;
 
@@ -248,7 +248,6 @@ const Goals = () => {
     const refreshed = await goalsApi.getGoals(user.userId);
     setGoals(refreshed);
   };
->>>>>>> f5e2b42f7681d392363588f0bf4136f82e43cfbd
 
   // Calculate stats
   const activeGoalsCount = goals.filter(g => !isGoalCompleted(g)).length;
