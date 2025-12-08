@@ -34,7 +34,7 @@ def call_external_recommendation_api(
     user_role: str,
     user_company: str,
     connections: List[Connection],
-    threshold: float = 0.65
+    threshold: float = 0.65,
 ) -> Optional[List[Tuple[Connection, float]]]:
     """Call external ML recommendation API service."""
     if not EXTERNAL_RECOMMENDATION_API_URL:
