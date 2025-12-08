@@ -1431,14 +1431,62 @@ def trigger_gmail_sync(token: str = Depends(oauth2_scheme)):
 # Background sync endpoint removed - using manual sync only
 
 
-# Serve the built frontend (the Vite build output) - MUST be after all API routes
-# This will serve static files and handle the root route
-frontend_dist_path = os.path.join(os.path.dirname(__file__), "../../frontend/dist")
-if os.path.exists(frontend_dist_path):
-    app.mount("/", StaticFiles(directory=frontend_dist_path, html=True), name="frontend")
-else:
-    # Fallback root handler if frontend not built
-    @app.get("/")
-    def root():
-        return {"message": "Frontend not built. Run 'npm run build' in the frontend directory."}
+# Root route handler - check for OAuth callback first
+@app.get("/")
+def root(code: Optional[str] = None, state: Optional[str] = None):
+    """
+    Root route handler.
+    If OAuth callback parameters are present, handle OAuth callback directly.
+    Otherwise, serve frontend or show message.
+    """
+    # Check if this is an OAuth callback (has code and state parameters)
+    if code and state:
+        # Handle OAuth callback directly (same logic as /api/gmail/oauth/callback)
+        try:
+            if not handle_oauth_callback:
+                from fastapi.responses import RedirectResponse
+                frontend_url = os.getenv("FRONTEND_URL", "https://ripple-rose.vercel.app")
+                return RedirectResponse(
+                    url=f"{frontend_url}/profile?gmail_error=Gmail sync service not available",
+                    status_code=302
+                )
+            
+            result = handle_oauth_callback(code, state)
+            
+            if result["success"]:
+                # Redirect to frontend success page
+                from fastapi.responses import RedirectResponse
+                frontend_url = os.getenv("FRONTEND_URL", "https://ripple-rose.vercel.app")
+                return RedirectResponse(
+                    url=f"{frontend_url}/profile?gmail_connected=true",
+                    status_code=302
+                )
+            else:
+                # Redirect to frontend error page
+                from fastapi.responses import RedirectResponse
+                frontend_url = os.getenv("FRONTEND_URL", "https://ripple-rose.vercel.app")
+                return RedirectResponse(
+                    url=f"{frontend_url}/profile?gmail_error={result.get('error', 'Unknown error')}",
+                    status_code=302
+                )
+        
+        except Exception as e:
+            print(f"Error handling OAuth callback at root: {e}")
+            from fastapi.responses import RedirectResponse
+            frontend_url = os.getenv("FRONTEND_URL", "https://ripple-rose.vercel.app")
+            return RedirectResponse(
+                url=f"{frontend_url}/profile?gmail_error={str(e)}",
+                status_code=302
+            )
+    
+    # Serve the built frontend (the Vite build output) - MUST be after all API routes
+    frontend_dist_path = os.path.join(os.path.dirname(__file__), "../../frontend/dist")
+    if os.path.exists(frontend_dist_path):
+        from fastapi.responses import FileResponse
+        index_path = os.path.join(frontend_dist_path, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+    
+    # Fallback if frontend not built
+    return {"message": "Frontend not built. Run 'npm run build' in the frontend directory."}
 
