@@ -148,7 +148,7 @@ const Discover = () => {
 
     try {
       setLoadingRecommendations(true);
-      const recs = await recommendationsApi.getRecommendations({ threshold: 0.3 });
+      const recs = await recommendationsApi.getRecommendations({ threshold: 0.5 });
       
       if (Array.isArray(recs) && recs.length > 0) {
         setRecommendations(recs);
