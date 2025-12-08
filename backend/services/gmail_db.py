@@ -240,6 +240,7 @@ def message_exists(gmail_id: str, user_id: int) -> bool:
 def upsert_contact(name: Optional[str], email: str, last_contact_ts: int, user_id: int) -> None:
     """Insert or update a contact. Only called for networking threads."""
     if not email or not user_id:
+        print(f"  ⚠️  upsert_contact skipped: email={email}, user_id={user_id}")
         return
     
     email_norm = email.lower()
@@ -252,6 +253,7 @@ def upsert_contact(name: Optional[str], email: str, last_contact_ts: int, user_i
         ).fetchone()
         
         if existing:
+            print(f"  📝 Updating existing Gmail contact: {email_norm}")
             existing_name, existing_ts = existing
             new_name = name.strip() if name else existing_name
             new_ts = max(existing_ts or 0, last_contact_ts or 0)
@@ -269,6 +271,7 @@ def upsert_contact(name: Optional[str], email: str, last_contact_ts: int, user_i
                 }
             )
         else:
+            print(f"  ➕ Creating new Gmail contact: {email_norm} (name: {name})")
             new_contact = GmailContact(
                 email=email_norm,
                 user_id=user_id,

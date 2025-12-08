@@ -340,16 +340,34 @@ def sync_gmail_for_user(user_id: int) -> Dict[str, Any]:
         messages.extend(inbox_primary)
         messages.extend(sent_msgs)
         
+        print(f"📬 Fetched {len(inbox_primary)} inbox messages and {len(sent_msgs)} sent messages (total: {len(messages)})")
+        
         # Process messages
         networking_count = 0
         errors = []
+        processed_emails = set()
         
         for msg in messages:
             try:
+                # Extract email addresses from message for logging
+                from_list = msg.get("from_list", []) or []
+                to_list = msg.get("to_list", []) or []
+                msg_emails = [e for _, e in from_list + to_list if e and e.lower() != gmail_email.lower()]
+                if msg_emails:
+                    processed_emails.add(msg_emails[0].lower())
+                
                 if process_message(msg, user_id, gmail_email):
                     networking_count += 1
+                    print(f"  ✅ Processed networking message from/to: {', '.join(msg_emails[:2])}")
             except Exception as e:
-                errors.append(str(e))
+                error_msg = str(e)
+                errors.append(error_msg)
+                print(f"  ❌ Error processing message: {error_msg}")
+        
+        print(f"📊 Processed {len(messages)} messages, found {networking_count} networking emails")
+        print(f"📧 Unique email addresses seen: {len(processed_emails)}")
+        if processed_emails:
+            print(f"   Emails: {', '.join(list(processed_emails)[:5])}")
         
         # Sync Gmail contacts to main contacts table
         try:

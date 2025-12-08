@@ -252,6 +252,7 @@ def process_message(msg: Dict[str, Any], user_id: int, gmail_email: str) -> bool
     # ----------------------------------------------------------
     try:
         is_networking, summary = classify_and_summarize(subject, body)
+        print(f"  🔍 Classified email from {contact_email}: networking={is_networking}, subject='{subject[:50]}...'")
     except Exception:
         traceback.print_exc()
         return False
@@ -259,6 +260,7 @@ def process_message(msg: Dict[str, Any], user_id: int, gmail_email: str) -> bool
     # For networking threads, we need a contact row (FK);
     # for non-networking, we do NOT create a contact at all.
     if is_networking:
+        print(f"  ✅ Creating Gmail contact for {contact_email} (networking thread)")
         try:
             name = _contact_name(msg, contact_email)
             upsert_contact(name=name, email=contact_email, last_contact_ts=ts, user_id=user_id)
