@@ -310,22 +310,22 @@ const ContactDetail = () => {
     }
   };
 
-  const handleDeleteMeeting = async (meetingId: number) => {
-    if (!user?.userId) return;
+  //const handleDeleteMeeting = async (meetingId: number) => {
+    //if (!user?.userId) return;
 
-    try {
-      await meetings.Api.deleteMeeting({ meeting_id: meetingId, user_id: user.userId, });
-      toast.success('Meeting deleted successfully!');
-      const contacts = await contactsApi.getContacts(user.userId);
-      const updatedContact = contacts.find(c => c.contact_id === parseInt(contactId!));
-      if(updatedContact){
-        setContact(updatedContact);
-      }
-    } catch (error) {
-      console.error('Failed to delete meeting:', error);
-      toast.error('Failed to delete meeting');
-    }
-  };
+    //try {
+      //await meetings.Api.deleteMeeting({ meeting_id: meetingId, user_id: user.userId, });
+      //toast.success('Meeting deleted successfully!');
+      //const contacts = await contactsApi.getContacts(user.userId);
+      //const updatedContact = contacts.find(c => c.contact_id === parseInt(contactId!));
+      //if(updatedContact){
+        //setContact(updatedContact);
+      //}
+    //} catch (error) {
+      //console.error('Failed to delete meeting:', error);
+      //toast.error('Failed to delete meeting');
+    //}
+  //};
   
   const getInteractionIcon = (type: string) => {
     switch (type.toLowerCase()) {
