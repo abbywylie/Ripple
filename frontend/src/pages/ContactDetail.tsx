@@ -14,7 +14,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
-import { contactsApi, interactionsApi, meetingsApi } from "@/lib/api";
+import { contactsApi, interactionsApi, meetingsApi, gmailApi } from "@/lib/api";
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -63,6 +63,10 @@ const ContactDetail = () => {
     follow_up_required: false,
     follow_up_date: ''
   });
+  const [gmailThreads, setGmailThreads] = useState<any[]>([]);
+  const [gmailMessages, setGmailMessages] = useState<Record<string, any[]>>({});
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [loadingGmail, setLoadingGmail] = useState(false);
 
   // Load contact and interactions
   useEffect(() => {
@@ -92,6 +96,46 @@ const ContactDetail = () => {
       loadContactData();
     }
   }, [user?.userId, contactId]);
+
+  // Load Gmail threads for this contact
+  useEffect(() => {
+    const loadGmailThreads = async () => {
+      if (!user?.userId || !contact?.email) return;
+      
+      try {
+        setLoadingGmail(true);
+        const threads = await gmailApi.getThreads(contact.email);
+        setGmailThreads(threads || []);
+      } catch (error) {
+        console.error('Failed to load Gmail threads:', error);
+        // Don't show error toast - Gmail data is optional
+      } finally {
+        setLoadingGmail(false);
+      }
+    };
+
+    if (contact?.email) {
+      loadGmailThreads();
+    }
+  }, [user?.userId, contact?.email]);
+
+  // Load messages for selected thread
+  useEffect(() => {
+    const loadThreadMessages = async () => {
+      if (!selectedThreadId || gmailMessages[selectedThreadId]) return;
+      
+      try {
+        const messages = await gmailApi.getThreadMessages(selectedThreadId);
+        setGmailMessages(prev => ({ ...prev, [selectedThreadId]: messages || [] }));
+      } catch (error) {
+        console.error('Failed to load thread messages:', error);
+      }
+    };
+
+    if (selectedThreadId) {
+      loadThreadMessages();
+    }
+  }, [selectedThreadId]);
 
   // Create new interaction
   const handleCreateInteraction = async () => {
@@ -743,9 +787,10 @@ const ContactDetail = () => {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="timeline" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="timeline">Timeline</TabsTrigger>
               <TabsTrigger value="checklist">Checklist</TabsTrigger>
+              <TabsTrigger value="gmail">Gmail {gmailThreads.length > 0 && `(${gmailThreads.length})`}</TabsTrigger>
               <TabsTrigger value="notes">Notes</TabsTrigger>
             </TabsList>
             <TabsContent value="timeline" className="mt-4">
@@ -847,6 +892,84 @@ const ContactDetail = () => {
                   }
                 }}
               />
+            </TabsContent>
+            <TabsContent value="gmail" className="mt-4">
+              {loadingGmail ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  <span className="ml-2 text-sm text-muted-foreground">Loading Gmail data...</span>
+                </div>
+              ) : gmailThreads.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No Gmail threads found for this contact.</p>
+                  <p className="text-sm mt-2">Make sure you've run the Gmail plugin to sync your emails.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {gmailThreads.map((thread) => (
+                    <Card key={thread.thread_id} className="cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={() => setSelectedThreadId(selectedThreadId === thread.thread_id ? null : thread.thread_id)}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Mail className="h-4 w-4 text-muted-foreground" />
+                              <h4 className="font-semibold">{thread.subject || 'No subject'}</h4>
+                              {thread.meeting_scheduled && (
+                                <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                                  <Calendar className="h-3 w-3 mr-1" />
+                                  Meeting
+                                </Badge>
+                              )}
+                              {thread.is_networking && (
+                                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                                  Networking
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              {thread.contact_email}
+                            </p>
+                            {thread.last_updated_ts && (
+                              <p className="text-xs text-muted-foreground">
+                                Last updated: {format(new Date(thread.last_updated_ts * 1000), 'MMM d, yyyy h:mm a')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {selectedThreadId === thread.thread_id && (
+                          <div className="mt-4 pt-4 border-t">
+                            {gmailMessages[thread.thread_id] ? (
+                              <div className="space-y-3">
+                                {gmailMessages[thread.thread_id].map((message, idx) => (
+                                  <div key={message.gmail_id || idx} className="pl-4 border-l-2 border-primary/20">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <Badge variant={message.direction === 'sent' ? 'default' : 'secondary'}>
+                                        {message.direction === 'sent' ? 'Sent' : 'Received'}
+                                      </Badge>
+                                      <span className="text-xs text-muted-foreground">
+                                        {format(new Date(message.timestamp * 1000), 'MMM d, yyyy h:mm a')}
+                                      </span>
+                                    </div>
+                                    {message.summary && (
+                                      <p className="text-sm mt-2">{message.summary}</p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-4 text-muted-foreground text-sm">
+                                Loading messages...
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </TabsContent>
             <TabsContent value="notes" className="mt-4">
               <div className="space-y-4">

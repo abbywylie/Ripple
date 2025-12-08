@@ -225,3 +225,24 @@ export const recommendationsApi = {
   },
 };
 
+// Gmail Plugin API
+export const gmailApi = {
+  getContacts: async () => {
+    const response = await apiClient.get('/api/gmail/contacts');
+    return response.data;
+  },
+  getThreads: async (contactEmail?: string) => {
+    const params = contactEmail ? { contact_email: contactEmail } : {};
+    const response = await apiClient.get('/api/gmail/threads', { params });
+    return response.data;
+  },
+  getThreadMessages: async (threadId: string) => {
+    const response = await apiClient.get(`/api/gmail/threads/${threadId}/messages`);
+    return response.data;
+  },
+  getSyncStatus: async () => {
+    const response = await apiClient.get('/api/gmail/sync-status');
+    return response.data;
+  },
+};
+

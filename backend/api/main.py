@@ -1128,6 +1128,191 @@ def test_database_connection():
         }
 
 
+# =====================================================
+# Gmail Plugin Integration Endpoints
+# =====================================================
+
+@app.get("/api/gmail/contacts", response_model=List[dict])
+def get_gmail_contacts(token: str = Depends(oauth2_scheme)):
+    """Get Gmail contacts for the authenticated user."""
+    try:
+        jwt_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = jwt_payload["user_id"]
+        
+        with get_session() as session:
+            # Query gmail_contacts table
+            result = session.execute(
+                text("""
+                    SELECT email, name, last_contact_ts,
+                           has_reached_out, has_contact_responded, 
+                           has_scheduled_meeting, awaiting_reply_from_user
+                    FROM gmail_contacts
+                    WHERE user_id = :user_id
+                    ORDER BY last_contact_ts DESC
+                """),
+                {"user_id": user_id}
+            )
+            rows = result.fetchall()
+            
+            contacts = []
+            for row in rows:
+                contacts.append({
+                    "email": row[0],
+                    "name": row[1],
+                    "last_contact_ts": row[2],
+                    "checklist": {
+                        "has_reached_out": row[3],
+                        "has_contact_responded": row[4],
+                        "has_scheduled_meeting": row[5],
+                        "awaiting_reply_from_user": row[6]
+                    }
+                })
+            
+            return contacts
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        print(f"Error fetching Gmail contacts: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get Gmail contacts: {str(e)}")
+
+
+@app.get("/api/gmail/threads", response_model=List[dict])
+def get_gmail_threads(
+    contact_email: Optional[str] = None,
+    token: str = Depends(oauth2_scheme)
+):
+    """Get Gmail threads for the authenticated user, optionally filtered by contact email."""
+    try:
+        jwt_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = jwt_payload["user_id"]
+        
+        with get_session() as session:
+            if contact_email:
+                result = session.execute(
+                    text("""
+                        SELECT thread_id, contact_email, subject, is_networking,
+                               first_message_ts, last_updated_ts, meeting_scheduled
+                        FROM gmail_threads
+                        WHERE user_id = :user_id AND contact_email = :contact_email
+                        ORDER BY last_updated_ts DESC NULLS LAST
+                    """),
+                    {"user_id": user_id, "contact_email": contact_email}
+                )
+            else:
+                result = session.execute(
+                    text("""
+                        SELECT thread_id, contact_email, subject, is_networking,
+                               first_message_ts, last_updated_ts, meeting_scheduled
+                        FROM gmail_threads
+                        WHERE user_id = :user_id
+                        ORDER BY last_updated_ts DESC NULLS LAST
+                    """),
+                    {"user_id": user_id}
+                )
+            
+            rows = result.fetchall()
+            
+            threads = []
+            for row in rows:
+                threads.append({
+                    "thread_id": row[0],
+                    "contact_email": row[1],
+                    "subject": row[2],
+                    "is_networking": row[3],
+                    "first_message_ts": row[4],
+                    "last_updated_ts": row[5],
+                    "meeting_scheduled": row[6]
+                })
+            
+            return threads
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        print(f"Error fetching Gmail threads: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get Gmail threads: {str(e)}")
+
+
+@app.get("/api/gmail/threads/{thread_id}/messages", response_model=List[dict])
+def get_gmail_thread_messages(thread_id: str, token: str = Depends(oauth2_scheme)):
+    """Get all messages in a Gmail thread."""
+    try:
+        jwt_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = jwt_payload["user_id"]
+        
+        with get_session() as session:
+            result = session.execute(
+                text("""
+                    SELECT gmail_id, thread_id, contact_email, timestamp,
+                           direction, summary
+                    FROM gmail_messages
+                    WHERE user_id = :user_id AND thread_id = :thread_id
+                    ORDER BY timestamp ASC
+                """),
+                {"user_id": user_id, "thread_id": thread_id}
+            )
+            rows = result.fetchall()
+            
+            messages = []
+            for row in rows:
+                messages.append({
+                    "gmail_id": row[0],
+                    "thread_id": row[1],
+                    "contact_email": row[2],
+                    "timestamp": row[3],
+                    "direction": row[4],
+                    "summary": row[5]
+                })
+            
+            return messages
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        print(f"Error fetching Gmail messages: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get Gmail messages: {str(e)}")
+
+
+@app.get("/api/gmail/sync-status", response_model=dict)
+def get_gmail_sync_status(token: str = Depends(oauth2_scheme)):
+    """Check if user has Gmail data synced."""
+    try:
+        jwt_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = jwt_payload["user_id"]
+        
+        with get_session() as session:
+            # Count Gmail contacts
+            contacts_result = session.execute(
+                text("SELECT COUNT(*) FROM gmail_contacts WHERE user_id = :user_id"),
+                {"user_id": user_id}
+            )
+            contacts_count = contacts_result.scalar() or 0
+            
+            # Count Gmail threads
+            threads_result = session.execute(
+                text("SELECT COUNT(*) FROM gmail_threads WHERE user_id = :user_id"),
+                {"user_id": user_id}
+            )
+            threads_count = threads_result.scalar() or 0
+            
+            return {
+                "has_gmail_data": contacts_count > 0 or threads_count > 0,
+                "contacts_count": contacts_count,
+                "threads_count": threads_count
+            }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        print(f"Error checking Gmail sync status: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to check Gmail sync status: {str(e)}")
+
+
 # Serve the built frontend (the Vite build output) - MUST be after all API routes
 # This will serve static files and handle the root route
 frontend_dist_path = os.path.join(os.path.dirname(__file__), "../../frontend/dist")
