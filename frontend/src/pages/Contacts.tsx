@@ -11,9 +11,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/AuthContext";
-import { contactsApi, interactionsApi } from "@/lib/api";
+import { contactsApi, interactionsApi, gmailApi } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { format } from "date-fns";
+import ContactCard from "@/components/ContactCard";
 import { GmailPluginDemo } from "@/components/GmailPluginDemo";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -206,6 +208,8 @@ const Contacts = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [emailSubject, setEmailSubject] = useState('');
   const [emailContent, setEmailContent] = useState('');
+  const [gmailThreads, setGmailThreads] = useState<any[]>([]);
+  const [loadingGmail, setLoadingGmail] = useState(false);
 
   // Load contacts from API
   useEffect(() => {
@@ -264,6 +268,42 @@ const Contacts = () => {
 
     loadContacts();
   }, [user?.userId]);
+
+  // Load Gmail threads when a contact is selected
+  useEffect(() => {
+    const loadGmailThreads = async () => {
+      if (!selectedContact?.email || !user?.userId) {
+        setGmailThreads([]);
+        return;
+      }
+      
+      try {
+        setLoadingGmail(true);
+        const threads = await gmailApi.getThreads(selectedContact.email);
+        
+        // Transform threads - messages will be loaded on-demand when thread is expanded
+        const transformedThreads = (threads || []).map((thread: any, index: number) => ({
+          id: thread.thread_id || `thread-${index}`,
+          thread_id: thread.thread_id,
+          label: thread.subject || `Thread ${index + 1}`,
+          subject: thread.subject,
+          summaries: [], // Will be loaded when thread is expanded
+          is_networking: thread.is_networking,
+          meeting_scheduled: thread.meeting_scheduled,
+          last_updated_ts: thread.last_updated_ts
+        }));
+        
+        setGmailThreads(transformedThreads);
+      } catch (error) {
+        console.error('Failed to load Gmail threads:', error);
+        setGmailThreads([]);
+      } finally {
+        setLoadingGmail(false);
+      }
+    };
+
+    loadGmailThreads();
+  }, [selectedContact?.email, user?.userId]);
 
   // Create new contact
   const handleCreateContact = async () => {
@@ -1350,83 +1390,58 @@ const Contacts = () => {
         </div>
 
         {/* Right Panel - Contact Detail */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
           {selectedContact ? (
-            <div className="p-6">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate(`/contacts/${selectedContact.contact_id}`)}
-                className="mb-4"
-              >
-                View Full Details →
-              </Button>
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-2xl font-bold mb-2">{selectedContact.name}</h2>
-                  <p className="text-muted-foreground">{selectedContact.role}</p>
-                  {selectedContact.company && (
-                    <p className="text-muted-foreground">{selectedContact.company}</p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Badge className={selectedContact.statusColor}>
-                    {selectedContact.statusLabel}
-                  </Badge>
-                  {selectedContact.relationshipStage && (
-                    <Badge variant="outline">{selectedContact.relationshipStage}</Badge>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {selectedContact.email && (
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Email</Label>
-                      <p className="text-sm">{selectedContact.email}</p>
-                    </div>
-                  )}
-                  {selectedContact.phone && (
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Phone</Label>
-                      <p className="text-sm">{selectedContact.phone}</p>
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={() => handleEmailClick(selectedContact)}>
-                    <Mail className="h-4 w-4 mr-2" />
-                    Email
-                  </Button>
-                  <Button variant="outline" onClick={() => handleEditContact(selectedContact)}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="outline" className="text-destructive hover:text-destructive">
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Contact</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete "{selectedContact.name}"? This action cannot be undone and will remove all associated meetings, interactions, and goals.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => handleDeleteContact(selectedContact)}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </div>
+            <div className="max-w-2xl mx-auto">
+              <ContactCard
+                contact={selectedContact}
+                gmailThreads={gmailThreads}
+                onLoadThreadMessages={async (threadId: string) => {
+                  try {
+                    const messages = await gmailApi.getThreadMessages(threadId);
+                    return (messages || []).map((msg: any, idx: number) => ({
+                      id: msg.gmail_id || `msg-${idx}`,
+                      createdAt: msg.timestamp 
+                        ? format(new Date(msg.timestamp * 1000), 'MMM d, yyyy')
+                        : 'Unknown date',
+                      summary: msg.summary || 'No summary available'
+                    }));
+                  } catch (error) {
+                    console.error(`Failed to load messages for thread ${threadId}:`, error);
+                    return [];
+                  }
+                }}
+                onStatusChange={async (contactId, status) => {
+                  // Update contact relationship stage based on status
+                  let relationshipStage = "Initial Contact";
+                  if (status.scheduledMeeting) {
+                    relationshipStage = "Meeting Scheduled";
+                  } else if (status.contactResponded) {
+                    relationshipStage = "Response Received";
+                  } else if (status.reachedOut) {
+                    relationshipStage = "Outreach Sent";
+                  }
+                  
+                  try {
+                    await contactsApi.updateContact(contactId, {
+                      relationship_stage: relationshipStage
+                    });
+                    // Reload contacts to reflect changes
+                    const contactsData = await contactsApi.getContacts(user?.userId || 0);
+                    const updatedContact = contactsData.find((c: any) => c.contact_id === contactId);
+                    if (updatedContact) {
+                      setSelectedContact(updatedContact);
+                    }
+                  } catch (error) {
+                    console.error('Failed to update contact status:', error);
+                    toast.error('Failed to update contact status');
+                  }
+                }}
+                onEmailClick={handleEmailClick}
+                onEditClick={handleEditContact}
+                onDeleteClick={handleDeleteContact}
+                onViewFullDetails={(contactId) => navigate(`/contacts/${contactId}`)}
+              />
             </div>
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground">
