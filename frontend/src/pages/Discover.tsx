@@ -228,7 +228,6 @@ const Discover = () => {
         user_id: user.userId,
         name: profile.display_name,
         email: profile.contact_method === "email" ? profile.contact_info : undefined,
-        phone: profile.contact_method === "phone" ? profile.contact_info: undefined,
         company: profile.school || undefined,
         job_title: profile.role || undefined,
         category: "Professional",
