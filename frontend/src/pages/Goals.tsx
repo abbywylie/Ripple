@@ -178,17 +178,21 @@ const Goals = () => {
     }
   };
 
-  // Calculate progress percentage based on completed steps
+  // Calculate progress percentage based on completed steps or explicit status
   const calculateProgress = (goal: any) => {
     const steps = goal.steps || [];
+    if (goal.status === 'Completed') return 100;
     if (steps.length === 0) return 0;
     const completedSteps = steps.filter((step: any) => step.completed).length;
     return Math.round((completedSteps / steps.length) * 100);
   };
 
+  // Derived completion state so UI can reflect accomplished goals even if status wasn't manually updated
+  const isGoalCompleted = (goal: any) => calculateProgress(goal) === 100;
+
   // Calculate stats
-  const activeGoalsCount = goals.filter(g => g.status === 'In Progress').length;
-  const completedGoalsCount = goals.filter(g => g.status === 'Completed').length;
+  const activeGoalsCount = goals.filter(g => !isGoalCompleted(g)).length;
+  const completedGoalsCount = goals.filter(g => isGoalCompleted(g)).length;
   const averageCompletion = goals.length > 0 
     ? Math.round(goals.reduce((sum, goal) => sum + calculateProgress(goal), 0) / goals.length)
     : 0;
@@ -361,19 +365,28 @@ const Goals = () => {
         ) : (
           goals.map((goal) => {
             const progress = calculateProgress(goal);
+            const completed = isGoalCompleted(goal);
+            const statusLabel = completed ? 'Completed' : (goal.status || 'In Progress');
             const steps = goal.steps || [];
             const completedSteps = steps.filter((step: any) => step.completed).length;
             return (
-              <Card key={goal.goal_id} className="glass-card border-border/50 hover:border-primary/50 transition-all">
+              <Card 
+                key={goal.goal_id} 
+                className={`glass-card border-border/50 hover:border-primary/50 transition-all ${completed ? 'opacity-80' : ''}`}
+              >
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <CardTitle className="text-xl mb-2">{goal.title}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{goal.description || 'No description provided'}</p>
+                  <CardTitle className={`text-xl mb-2 ${completed ? 'line-through text-muted-foreground' : ''}`}>
+                    {goal.title}
+                  </CardTitle>
+                      <p className={`text-sm text-muted-foreground ${completed ? 'line-through' : ''}`}>
+                        {goal.description || 'No description provided'}
+                      </p>
                 </div>
                     <div className="flex items-center gap-2">
-                <Badge variant="outline" className={getStatusColor(goal.status)}>
-                  {goal.status}
+                <Badge variant="outline" className={getStatusColor(statusLabel)}>
+                  {statusLabel}
                 </Badge>
                       <div className="flex gap-1">
                         <Button
