@@ -46,6 +46,8 @@ const ProfilePage = () => {
   const [gmailSyncStatus, setGmailSyncStatus] = useState<any>(null);
   const [isLoadingGmailStatus, setIsLoadingGmailStatus] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
+  const [isUpdatingAutoSync, setIsUpdatingAutoSync] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -121,6 +123,28 @@ const ProfilePage = () => {
       toast.error(error.response?.data?.detail || 'Failed to sync Gmail');
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleToggleAutoSync = async (enabled: boolean) => {
+    if (!gmailSyncStatus?.oauth_connected) {
+      toast.error('Please connect Gmail first');
+      return;
+    }
+    
+    setIsUpdatingAutoSync(true);
+    try {
+      await gmailApi.setAutoSync(enabled);
+      setAutoSyncEnabled(enabled);
+      toast.success(enabled ? 'Automatic sync enabled' : 'Automatic sync disabled');
+      // Refresh status to get updated value
+      loadGmailStatus();
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || 'Failed to update auto-sync setting');
+      // Revert toggle on error
+      setAutoSyncEnabled(!enabled);
+    } finally {
+      setIsUpdatingAutoSync(false);
     }
   };
 
@@ -811,9 +835,29 @@ const ProfilePage = () => {
                         )}
                       </div>
                       
+                      {/* Auto-sync toggle */}
+                      {gmailSyncStatus?.oauth_connected && (
+                        <div className="flex items-center justify-between pt-3 border-t mt-2">
+                          <div className="flex flex-col">
+                            <Label htmlFor="auto-sync" className="text-sm font-medium cursor-pointer">
+                              Automatic Sync
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                              Sync Gmail every 5 minutes automatically
+                            </p>
+                          </div>
+                          <Switch
+                            id="auto-sync"
+                            checked={autoSyncEnabled}
+                            onCheckedChange={handleToggleAutoSync}
+                            disabled={isUpdatingAutoSync}
+                          />
+                        </div>
+                      )}
+                      
                       {gmailSyncStatus?.oauth_connected && (
                         <p className="text-xs text-muted-foreground text-center pt-2">
-                          Click "Sync Now" to sync your Gmail emails and contacts.
+                          Click "Sync Now" to sync your Gmail emails and contacts manually.
                         </p>
                       )}
                     </div>

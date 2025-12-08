@@ -48,7 +48,8 @@ try:
         sync_gmail_for_user,
         get_gmail_sync_status as get_gmail_oauth_status,
         start_background_sync,
-        stop_background_sync
+        stop_background_sync,
+        set_auto_sync_enabled
     )
 except ImportError as e:
     print(f"Warning: gmail_sync_service not available: {e}")
@@ -58,6 +59,7 @@ except ImportError as e:
     get_gmail_oauth_status = None
     start_background_sync = None
     stop_background_sync = None
+    set_auto_sync_enabled = None
 
 
 app = FastAPI(title="Networking API", version="1.0.0")
@@ -1429,6 +1431,32 @@ def trigger_gmail_sync(token: str = Depends(oauth2_scheme)):
     except Exception as e:
         print(f"Error syncing Gmail: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to sync Gmail: {str(e)}")
+
+
+@app.put("/api/gmail/auto-sync")
+def set_gmail_auto_sync(payload: dict, token: str = Depends(oauth2_scheme)):
+    """Enable or disable automatic Gmail sync for the authenticated user."""
+    try:
+        jwt_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = jwt_payload["user_id"]
+        
+        enabled = payload.get("enabled", True)
+        
+        if not set_auto_sync_enabled:
+            raise HTTPException(status_code=503, detail="Gmail sync service not available")
+        
+        result = set_auto_sync_enabled(user_id, enabled)
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to update auto-sync setting"))
+        
+        return {"status": "success", "auto_sync_enabled": result.get("auto_sync_enabled", enabled)}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        print(f"Error setting Gmail auto-sync: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to set auto-sync: {str(e)}")
 
 
 # Background sync endpoint removed - using manual sync only

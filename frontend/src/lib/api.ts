@@ -227,6 +227,10 @@ export const recommendationsApi = {
 
 // Gmail Plugin API
 export const gmailApi = {
+  setAutoSync: async (enabled: boolean) => {
+    const response = await apiClient.put('/api/gmail/auto-sync', { enabled });
+    return response.data;
+  },
   getContacts: async () => {
     const response = await apiClient.get('/api/gmail/contacts');
     return response.data;

@@ -413,7 +413,8 @@ def get_gmail_sync_status(user_id: int) -> Dict[str, Any]:
     with get_session() as session:
         result = session.execute(
             text("""
-                SELECT tokens_json, last_sync_at, created_at
+                SELECT tokens_json, last_sync_at, created_at, 
+                       COALESCE(auto_sync_enabled, true) as auto_sync_enabled
                 FROM gmail_oauth_tokens
                 WHERE user_id = :user_id
             """),
@@ -423,16 +424,19 @@ def get_gmail_sync_status(user_id: int) -> Dict[str, Any]:
         
         if not row:
             return {
-                "connected": False,
-                "last_sync": None
+                "oauth_connected": False,
+                "last_sync": None,
+                "auto_sync_enabled": True
             }
         
         last_sync = row[1].isoformat() if row[1] else None
+        auto_sync_enabled = row[3] if row[3] is not None else True
         
         return {
-            "connected": True,
+            "oauth_connected": True,
             "last_sync": last_sync,
-            "connected_at": row[2].isoformat() if row[2] else None
+            "connected_at": row[2].isoformat() if row[2] else None,
+            "auto_sync_enabled": auto_sync_enabled
         }
 
 
@@ -605,12 +609,16 @@ _background_sync_lock = threading.Lock()
 
 
 def _sync_all_users_with_gmail():
-    """Sync Gmail for all users who have OAuth connected."""
+    """Sync Gmail for all users who have OAuth connected and auto-sync enabled."""
     try:
         with get_session() as session:
-            # Get all users with Gmail OAuth tokens
+            # Get all users with Gmail OAuth tokens AND auto_sync_enabled = true
             result = session.execute(
-                text("SELECT DISTINCT user_id FROM gmail_oauth_tokens")
+                text("""
+                    SELECT DISTINCT user_id 
+                    FROM gmail_oauth_tokens 
+                    WHERE COALESCE(auto_sync_enabled, true) = true
+                """)
             )
             user_ids = [row[0] for row in result.fetchall()]
         
@@ -693,4 +701,32 @@ def stop_background_sync():
             _background_sync_thread.join(timeout=10)  # Wait up to 10 seconds for thread to finish
         
         print("✅ Background Gmail sync stopped")
+
+
+def set_auto_sync_enabled(user_id: int, enabled: bool) -> Dict[str, Any]:
+    """Set auto-sync enabled/disabled for a user."""
+    try:
+        with get_session() as session:
+            # Check if user has OAuth tokens
+            result = session.execute(
+                text("SELECT user_id FROM gmail_oauth_tokens WHERE user_id = :user_id"),
+                {"user_id": user_id}
+            )
+            if not result.fetchone():
+                return {"success": False, "error": "User does not have Gmail OAuth connected"}
+            
+            # Update auto_sync_enabled
+            session.execute(
+                text("""
+                    UPDATE gmail_oauth_tokens 
+                    SET auto_sync_enabled = :enabled
+                    WHERE user_id = :user_id
+                """),
+                {"user_id": user_id, "enabled": enabled}
+            )
+            
+            return {"success": True, "auto_sync_enabled": enabled}
+    except Exception as e:
+        print(f"Error setting auto-sync enabled: {e}")
+        return {"success": False, "error": str(e)}
 
