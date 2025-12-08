@@ -20,6 +20,25 @@ import { GmailPluginDemo } from "@/components/GmailPluginDemo";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
+// Helper function to format timestamp (in milliseconds) to EST/EDT date string
+// Gmail timestamps are in UTC milliseconds. We extract the UTC date components
+// and create a local date to ensure the calendar date displays correctly in EST/EDT
+const formatTimestampToEST = (timestampMs: number): string => {
+  // Create Date object from UTC timestamp
+  const utcDate = new Date(timestampMs);
+  
+  // Get UTC date components (year, month, day)
+  const year = utcDate.getUTCFullYear();
+  const month = utcDate.getUTCMonth();
+  const day = utcDate.getUTCDate();
+  
+  // Create a new Date using UTC components but in local timezone context
+  // This ensures the calendar date (not the time) is preserved correctly
+  const localDate = new Date(year, month, day);
+  
+  return format(localDate, 'MMM d, yyyy');
+};
+
 // Helper function to parse date strings as local dates to avoid timezone issues
 const parseLocalDate = (dateString: string): Date | null => {
   if (!dateString) return null;
@@ -1402,7 +1421,7 @@ const Contacts = () => {
                     return (messages || []).map((msg: any, idx: number) => ({
                       id: msg.gmail_id || `msg-${idx}`,
                       createdAt: msg.timestamp 
-                        ? format(new Date(msg.timestamp * 1000), 'MMM d, yyyy')
+                        ? formatTimestampToEST(msg.timestamp)
                         : 'Unknown date',
                       summary: msg.summary || 'No summary available'
                     }));
