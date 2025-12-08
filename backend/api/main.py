@@ -41,6 +41,20 @@ except ImportError as e:
     print(f"Warning: rag_service not available: {e}")
     answer_rag_question = None
 
+try:
+    from services.gmail_sync_service import (
+        get_authorization_url,
+        handle_oauth_callback,
+        sync_gmail_for_user,
+        get_gmail_sync_status as get_gmail_oauth_status
+    )
+except ImportError as e:
+    print(f"Warning: gmail_sync_service not available: {e}")
+    get_authorization_url = None
+    handle_oauth_callback = None
+    sync_gmail_for_user = None
+    get_gmail_oauth_status = None
+
 
 app = FastAPI(title="Networking API", version="1.0.0")
 
@@ -1279,10 +1293,19 @@ def get_gmail_thread_messages(thread_id: str, token: str = Depends(oauth2_scheme
 
 @app.get("/api/gmail/sync-status", response_model=dict)
 def get_gmail_sync_status(token: str = Depends(oauth2_scheme)):
-    """Check if user has Gmail data synced."""
+    """Check if user has Gmail data synced and OAuth connection status."""
     try:
         jwt_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = jwt_payload["user_id"]
+        
+        # Get OAuth connection status
+        oauth_status = {}
+        if get_gmail_oauth_status:
+            try:
+                oauth_status = get_gmail_oauth_status(user_id)
+            except Exception as e:
+                print(f"Error getting OAuth status: {e}")
+                oauth_status = {"connected": False}
         
         with get_session() as session:
             # Count Gmail contacts
@@ -1302,7 +1325,10 @@ def get_gmail_sync_status(token: str = Depends(oauth2_scheme)):
             return {
                 "has_gmail_data": contacts_count > 0 or threads_count > 0,
                 "contacts_count": contacts_count,
-                "threads_count": threads_count
+                "threads_count": threads_count,
+                "oauth_connected": oauth_status.get("connected", False),
+                "last_sync": oauth_status.get("last_sync"),
+                "connected_at": oauth_status.get("connected_at")
             }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
@@ -1311,6 +1337,93 @@ def get_gmail_sync_status(token: str = Depends(oauth2_scheme)):
     except Exception as e:
         print(f"Error checking Gmail sync status: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to check Gmail sync status: {str(e)}")
+
+
+# =====================================================
+# Gmail OAuth and Sync Endpoints
+# =====================================================
+
+@app.get("/api/gmail/oauth/authorize")
+def gmail_oauth_authorize(token: str = Depends(oauth2_scheme)):
+    """Get OAuth authorization URL for Gmail integration."""
+    try:
+        jwt_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = jwt_payload["user_id"]
+        
+        if not get_authorization_url:
+            raise HTTPException(status_code=503, detail="Gmail sync service not available")
+        
+        auth_url = get_authorization_url(user_id)
+        return {"authorization_url": auth_url}
+    
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        print(f"Error generating OAuth URL: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate OAuth URL: {str(e)}")
+
+
+@app.get("/api/gmail/oauth/callback")
+def gmail_oauth_callback(code: str, state: str):
+    """Handle OAuth callback from Google."""
+    try:
+        if not handle_oauth_callback:
+            raise HTTPException(status_code=503, detail="Gmail sync service not available")
+        
+        result = handle_oauth_callback(code, state)
+        
+        if result["success"]:
+            # Redirect to frontend success page
+            from fastapi.responses import RedirectResponse
+            frontend_url = os.getenv("FRONTEND_URL", "https://ripple-rose.vercel.app")
+            return RedirectResponse(
+                url=f"{frontend_url}/profile?gmail_connected=true",
+                status_code=302
+            )
+        else:
+            # Redirect to frontend error page
+            from fastapi.responses import RedirectResponse
+            frontend_url = os.getenv("FRONTEND_URL", "https://ripple-rose.vercel.app")
+            return RedirectResponse(
+                url=f"{frontend_url}/profile?gmail_error={result.get('error', 'Unknown error')}",
+                status_code=302
+            )
+    
+    except Exception as e:
+        print(f"Error handling OAuth callback: {e}")
+        from fastapi.responses import RedirectResponse
+        frontend_url = os.getenv("FRONTEND_URL", "https://ripple-rose.vercel.app")
+        return RedirectResponse(
+            url=f"{frontend_url}/profile?gmail_error={str(e)}",
+            status_code=302
+        )
+
+
+@app.post("/api/gmail/sync")
+def trigger_gmail_sync(token: str = Depends(oauth2_scheme)):
+    """Trigger Gmail sync for the authenticated user."""
+    try:
+        jwt_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = jwt_payload["user_id"]
+        
+        if not sync_gmail_for_user:
+            raise HTTPException(status_code=503, detail="Gmail sync service not available")
+        
+        result = sync_gmail_for_user(user_id)
+        return result
+    
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except ValueError as e:
+        # No credentials found
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Error syncing Gmail: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to sync Gmail: {str(e)}")
 
 
 # Serve the built frontend (the Vite build output) - MUST be after all API routes

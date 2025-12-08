@@ -244,5 +244,13 @@ export const gmailApi = {
     const response = await apiClient.get('/api/gmail/sync-status');
     return response.data;
   },
+  getOAuthUrl: async () => {
+    const response = await apiClient.get('/api/gmail/oauth/authorize');
+    return response.data;
+  },
+  triggerSync: async () => {
+    const response = await apiClient.post('/api/gmail/sync');
+    return response.data;
+  },
 };
 

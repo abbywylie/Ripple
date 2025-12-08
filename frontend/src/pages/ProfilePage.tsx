@@ -8,12 +8,13 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
-import { LogOut, Mail, User, BookOpen, Moon, Zap, Battery, Edit, Save, X, Briefcase, GraduationCap, TrendingUp, Sparkles, Globe, Eye, EyeOff, Linkedin, Hash, HelpCircle } from 'lucide-react';
+import { LogOut, Mail, User, BookOpen, Moon, Zap, Battery, Edit, Save, X, Briefcase, GraduationCap, TrendingUp, Sparkles, Globe, Eye, EyeOff, Linkedin, Hash, HelpCircle, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link } from 'react-router-dom';
 import { resetTour } from '@/components/OnboardingTour';
 import { toast } from 'sonner';
-import { authApi, publicProfilesApi } from '@/lib/api';
+import { authApi, publicProfilesApi, gmailApi } from '@/lib/api';
+import { useSearchParams } from 'react-router-dom';
 
 const ProfilePage = () => {
   const { user, logout } = useAuth();
@@ -39,6 +40,12 @@ const ProfilePage = () => {
   });
   const [isLoadingPublicProfile, setIsLoadingPublicProfile] = useState(false);
   const [isSavingPublicProfile, setIsSavingPublicProfile] = useState(false);
+  
+  // Gmail sync state
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [gmailSyncStatus, setGmailSyncStatus] = useState<any>(null);
+  const [isLoadingGmailStatus, setIsLoadingGmailStatus] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -48,6 +55,74 @@ const ProfilePage = () => {
       loadPublicProfile();
     }
   }, [user]);
+  
+  // Check for OAuth callback params
+  useEffect(() => {
+    const gmailConnected = searchParams.get('gmail_connected');
+    const gmailError = searchParams.get('gmail_error');
+    
+    if (gmailConnected === 'true') {
+      toast.success('Gmail connected successfully!');
+      setSearchParams({}); // Clear params
+      loadGmailStatus();
+    } else if (gmailError) {
+      toast.error(`Gmail connection failed: ${gmailError}`);
+      setSearchParams({}); // Clear params
+    }
+  }, [searchParams, setSearchParams]);
+  
+  // Load Gmail sync status
+  useEffect(() => {
+    if (user?.userId) {
+      loadGmailStatus();
+    }
+  }, [user?.userId]);
+  
+  const loadGmailStatus = async () => {
+    if (!user?.userId) return;
+    
+    setIsLoadingGmailStatus(true);
+    try {
+      const status = await gmailApi.getSyncStatus();
+      setGmailSyncStatus(status);
+    } catch (error) {
+      console.error('Failed to load Gmail status:', error);
+    } finally {
+      setIsLoadingGmailStatus(false);
+    }
+  };
+  
+  const handleConnectGmail = async () => {
+    try {
+      const response = await gmailApi.getOAuthUrl();
+      // Redirect to Google OAuth
+      window.location.href = response.authorization_url;
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || 'Failed to connect Gmail');
+    }
+  };
+  
+  const handleSyncGmail = async () => {
+    if (!gmailSyncStatus?.oauth_connected) {
+      toast.error('Please connect your Gmail account first');
+      return;
+    }
+    
+    setIsSyncing(true);
+    try {
+      const result = await gmailApi.triggerSync();
+      if (result.success) {
+        toast.success(`Synced ${result.messages_processed} messages, found ${result.networking_messages} networking emails`);
+        loadGmailStatus(); // Refresh status
+      } else {
+        toast.error(result.error || 'Sync failed');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || 'Failed to sync Gmail');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const loadPublicProfile = async () => {
     if (!user?.userId) return;
@@ -642,6 +717,109 @@ const ProfilePage = () => {
                   </CardContent>
                 </Card>
               )}
+            </div>
+
+            <Separator className="my-6" />
+            
+            {/* Gmail Integration */}
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Gmail Integration</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Connect your Gmail account to automatically sync networking emails and contacts
+                </p>
+              </div>
+              
+              <Card>
+                <CardContent className="pt-6">
+                  {isLoadingGmailStatus ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Connection Status */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Mail className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <Label className="font-medium">
+                              Gmail Connection
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                              {gmailSyncStatus?.oauth_connected 
+                                ? `Connected • Last synced: ${gmailSyncStatus?.last_sync ? new Date(gmailSyncStatus.last_sync).toLocaleString() : 'Never'}`
+                                : 'Not connected'}
+                            </p>
+                          </div>
+                        </div>
+                        {gmailSyncStatus?.oauth_connected ? (
+                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        ) : (
+                          <AlertCircle className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </div>
+                      
+                      {/* Stats */}
+                      {gmailSyncStatus?.oauth_connected && (
+                        <div className="grid grid-cols-2 gap-4 pt-2">
+                          <div className="text-center p-3 bg-muted rounded-lg">
+                            <div className="text-2xl font-bold">{gmailSyncStatus?.contacts_count || 0}</div>
+                            <div className="text-xs text-muted-foreground">Gmail Contacts</div>
+                          </div>
+                          <div className="text-center p-3 bg-muted rounded-lg">
+                            <div className="text-2xl font-bold">{gmailSyncStatus?.threads_count || 0}</div>
+                            <div className="text-xs text-muted-foreground">Email Threads</div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Actions */}
+                      <div className="flex gap-2 pt-2">
+                        {!gmailSyncStatus?.oauth_connected ? (
+                          <Button onClick={handleConnectGmail} className="flex-1">
+                            <Mail className="h-4 w-4 mr-2" />
+                            Connect Gmail
+                          </Button>
+                        ) : (
+                          <>
+                            <Button 
+                              onClick={handleSyncGmail} 
+                              disabled={isSyncing}
+                              variant="outline"
+                              className="flex-1"
+                            >
+                              {isSyncing ? (
+                                <>
+                                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  Syncing...
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw className="h-4 w-4 mr-2" />
+                                  Sync Now
+                                </>
+                              )}
+                            </Button>
+                            <Button 
+                              onClick={handleConnectGmail} 
+                              variant="outline"
+                            >
+                              Reconnect
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                      
+                      {gmailSyncStatus?.oauth_connected && (
+                        <p className="text-xs text-muted-foreground text-center pt-2">
+                          Gmail syncs automatically. Click "Sync Now" to sync immediately.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
             <Separator className="my-6" />
