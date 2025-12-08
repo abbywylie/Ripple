@@ -34,7 +34,7 @@ const Goals = () => {
       if (user?.userId) {
         try {
           const goalsData = await goalsApi.getGoals(user.userId);
-          setGoals(goalsData);
+          await removeCompletedGoals(goalsData);
         } catch (error) {
           console.error('Failed to load goals:', error);
           setGoals([]);
@@ -69,7 +69,7 @@ const Goals = () => {
       
       // Reload goals
       const updatedGoals = await goalsApi.getGoals(user.userId);
-      setGoals(updatedGoals);
+      await removeCompletedGoals(updatedGoals);
       
       // Reset form and close dialog
       setNewGoal({
@@ -111,7 +111,7 @@ const Goals = () => {
       
       // Reload goals
       const updatedGoals = await goalsApi.getGoals(user.userId);
-      setGoals(updatedGoals);
+      await removeCompletedGoals(updatedGoals);
       
       // Close dialog and reset state
       setIsEditDialogOpen(false);
@@ -133,7 +133,7 @@ const Goals = () => {
       
       // Reload goals
       const updatedGoals = await goalsApi.getGoals(user.userId);
-      setGoals(updatedGoals);
+      await removeCompletedGoals(updatedGoals);
     } catch (error) {
       console.error('Failed to delete goal:', error);
     }
@@ -152,7 +152,7 @@ const Goals = () => {
       
       // Reload goals to get updated steps
       const updatedGoals = await goalsApi.getGoals(user.userId);
-      setGoals(updatedGoals);
+      await removeCompletedGoals(updatedGoals);
     } catch (error) {
       console.error('Failed to toggle step:', error);
     }
@@ -172,20 +172,22 @@ const Goals = () => {
       
       // Reload goals
       const updatedGoals = await goalsApi.getGoals(user.userId);
-      setGoals(updatedGoals);
+      await removeCompletedGoals(updatedGoals);
     } catch (error) {
       console.error('Failed to add step:', error);
     }
   };
 
-  // Calculate progress percentage based on completed steps
+  // Calculate progress percentage based on completed steps or explicit status
   const calculateProgress = (goal: any) => {
     const steps = goal.steps || [];
+    if (goal.status === 'Completed') return 100;
     if (steps.length === 0) return 0;
     const completedSteps = steps.filter((step: any) => step.completed).length;
     return Math.round((completedSteps / steps.length) * 100);
   };
 
+<<<<<<< HEAD
   // Auto-mark goal as completed when progress reaches 100%
   useEffect(() => {
     const markCompletedGoals = async () => {
@@ -215,10 +217,42 @@ const Goals = () => {
 
     markCompletedGoals();
   }, [goals, user?.userId]);
+=======
+  // Derived completion state so UI can reflect accomplished goals even if status wasn't manually updated
+  const isGoalCompleted = (goal: any) => calculateProgress(goal) === 100;
+
+  // Remove completed goals from the list (auto-cleanup) and keep UI in sync
+  const removeCompletedGoals = async (goalsList: any[]) => {
+    if (!user?.userId) {
+      setGoals(goalsList);
+      return;
+    }
+
+    const completed = goalsList.filter((g) => isGoalCompleted(g));
+    if (completed.length === 0) {
+      setGoals(goalsList);
+      return;
+    }
+
+    // Delete completed goals
+    await Promise.allSettled(
+      completed.map((goal) =>
+        goalsApi.deleteGoal({
+          goal_id: goal.goal_id,
+          user_id: user.userId,
+        })
+      )
+    );
+
+    // Refresh list after deletion
+    const refreshed = await goalsApi.getGoals(user.userId);
+    setGoals(refreshed);
+  };
+>>>>>>> f5e2b42f7681d392363588f0bf4136f82e43cfbd
 
   // Calculate stats
-  const activeGoalsCount = goals.filter(g => g.status === 'In Progress').length;
-  const completedGoalsCount = goals.filter(g => g.status === 'Completed').length;
+  const activeGoalsCount = goals.filter(g => !isGoalCompleted(g)).length;
+  const completedGoalsCount = goals.filter(g => isGoalCompleted(g)).length;
   const averageCompletion = goals.length > 0 
     ? Math.round(goals.reduce((sum, goal) => sum + calculateProgress(goal), 0) / goals.length)
     : 0;
@@ -391,19 +425,28 @@ const Goals = () => {
         ) : (
           goals.map((goal) => {
             const progress = calculateProgress(goal);
+            const completed = isGoalCompleted(goal);
+            const statusLabel = completed ? 'Completed' : (goal.status || 'In Progress');
             const steps = goal.steps || [];
             const completedSteps = steps.filter((step: any) => step.completed).length;
             return (
-              <Card key={goal.goal_id} className="glass-card border-border/50 hover:border-primary/50 transition-all">
+              <Card 
+                key={goal.goal_id} 
+                className={`glass-card border-border/50 hover:border-primary/50 transition-all ${completed ? 'opacity-80' : ''}`}
+              >
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <CardTitle className="text-xl mb-2">{goal.title}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{goal.description || 'No description provided'}</p>
+                  <CardTitle className={`text-xl mb-2 ${completed ? 'line-through text-muted-foreground' : ''}`}>
+                    {goal.title}
+                  </CardTitle>
+                      <p className={`text-sm text-muted-foreground ${completed ? 'line-through' : ''}`}>
+                        {goal.description || 'No description provided'}
+                      </p>
                 </div>
                     <div className="flex items-center gap-2">
-                <Badge variant="outline" className={getStatusColor(goal.status)}>
-                  {goal.status}
+                <Badge variant="outline" className={getStatusColor(statusLabel)}>
+                  {statusLabel}
                 </Badge>
                       <div className="flex gap-1">
                         <Button
