@@ -55,6 +55,8 @@ except ImportError as e:
     sync_gmail_for_user = None
     get_gmail_oauth_status = None
 
+# Background sync removed - using manual sync only to save API calls
+
 
 app = FastAPI(title="Networking API", version="1.0.0")
 
@@ -1403,7 +1405,7 @@ def gmail_oauth_callback(code: str, state: str):
 
 @app.post("/api/gmail/sync")
 def trigger_gmail_sync(token: str = Depends(oauth2_scheme)):
-    """Trigger Gmail sync for the authenticated user."""
+    """Trigger manual Gmail sync for the authenticated user (on-demand)."""
     try:
         jwt_payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = jwt_payload["user_id"]
@@ -1424,6 +1426,9 @@ def trigger_gmail_sync(token: str = Depends(oauth2_scheme)):
     except Exception as e:
         print(f"Error syncing Gmail: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to sync Gmail: {str(e)}")
+
+
+# Background sync endpoint removed - using manual sync only
 
 
 # Serve the built frontend (the Vite build output) - MUST be after all API routes

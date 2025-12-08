@@ -726,7 +726,7 @@ const ProfilePage = () => {
               <div>
                 <h3 className="text-lg font-semibold mb-2">Gmail Integration</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Connect your Gmail account to automatically sync networking emails and contacts
+                  Connect your Gmail account to sync networking emails and contacts. Click "Sync Now" to sync manually.
                 </p>
               </div>
               
@@ -813,7 +813,7 @@ const ProfilePage = () => {
                       
                       {gmailSyncStatus?.oauth_connected && (
                         <p className="text-xs text-muted-foreground text-center pt-2">
-                          Gmail syncs automatically. Click "Sync Now" to sync immediately.
+                          Click "Sync Now" to sync your Gmail emails and contacts.
                         </p>
                       )}
                     </div>
