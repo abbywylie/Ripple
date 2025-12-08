@@ -276,9 +276,10 @@ const ContactDetail = () => {
     try {
       // Parse date string to ISO format for database
       let meetingDate = meetingDetails.date;
-      if (meetingDetails.date && typeof meetingDetails.date === 'string') {
-        try {
-          meetingDate = format(new Date(meetingDetails.date), 'yyyy-MM-dd');
+      if(typeof meetingDetails.date !== 'string'){
+        //if not a string convert
+        try {  
+          meetingDate = format(meetingDate, "yyyy-MM-dd");
         } catch {
           toast.error('Invalid date format');
           return;
