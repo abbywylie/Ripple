@@ -187,7 +187,6 @@ const Goals = () => {
     return Math.round((completedSteps / steps.length) * 100);
   };
 
-<<<<<<< HEAD
   // Auto-mark goal as completed when progress reaches 100%
   useEffect(() => {
     const markCompletedGoals = async () => {
