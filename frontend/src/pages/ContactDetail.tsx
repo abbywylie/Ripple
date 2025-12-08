@@ -276,9 +276,10 @@ const ContactDetail = () => {
     try {
       // Parse date string to ISO format for database
       let meetingDate = meetingDetails.date;
-      if (meetingDetails.date && typeof meetingDetails.date === 'string') {
-        try {
-          meetingDate = format(new Date(meetingDetails.date), 'yyyy-MM-dd');
+      if(typeof meetingDetails.date !== 'string'){
+        //if not a string convert
+        try {  
+          meetingDate = format(meetingDate, "yyyy-MM-dd");
         } catch {
           toast.error('Invalid date format');
           return;
@@ -309,6 +310,23 @@ const ContactDetail = () => {
     }
   };
 
+  //const handleDeleteMeeting = async (meetingId: number) => {
+    //if (!user?.userId) return;
+
+    //try {
+      //await meetings.Api.deleteMeeting({ meeting_id: meetingId, user_id: user.userId, });
+      //toast.success('Meeting deleted successfully!');
+      //const contacts = await contactsApi.getContacts(user.userId);
+      //const updatedContact = contacts.find(c => c.contact_id === parseInt(contactId!));
+      //if(updatedContact){
+        //setContact(updatedContact);
+      //}
+    //} catch (error) {
+      //console.error('Failed to delete meeting:', error);
+      //toast.error('Failed to delete meeting');
+    //}
+  //};
+  
   const getInteractionIcon = (type: string) => {
     switch (type.toLowerCase()) {
       case 'email':
@@ -1101,6 +1119,7 @@ const ContactDetail = () => {
           <MeetingList 
             contactId={parseInt(contactId)} 
             userId={user.userId}
+            //onDeleteMeeting={handleDeleteMeeting} 
             onMeetingChange={() => {
               // Optionally reload contact data if needed
             }}
