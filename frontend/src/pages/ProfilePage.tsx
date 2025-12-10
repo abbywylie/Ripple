@@ -65,8 +65,12 @@ const ProfilePage = () => {
     
     if (gmailConnected === 'true') {
       toast.success('Gmail connected successfully!');
-      setSearchParams({}); // Clear params
+      // Load status immediately and again after a short delay to ensure it's updated
       loadGmailStatus();
+      setTimeout(() => {
+        loadGmailStatus();
+      }, 1000);
+      setSearchParams({}); // Clear params after loading
     } else if (gmailError) {
       toast.error(`Gmail connection failed: ${gmailError}`);
       setSearchParams({}); // Clear params

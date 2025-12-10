@@ -1312,7 +1312,7 @@ def get_gmail_sync_status(token: str = Depends(oauth2_scheme)):
                 oauth_status = get_gmail_oauth_status(user_id)
             except Exception as e:
                 print(f"Error getting OAuth status: {e}")
-                oauth_status = {"connected": False}
+                oauth_status = {"oauth_connected": False}
         
         with get_session() as session:
             # Count Gmail contacts
@@ -1329,13 +1329,17 @@ def get_gmail_sync_status(token: str = Depends(oauth2_scheme)):
             )
             threads_count = threads_result.scalar() or 0
             
+            # Get oauth_connected from oauth_status (it returns oauth_connected, not connected)
+            oauth_connected = oauth_status.get("oauth_connected", False)
+            
             return {
                 "has_gmail_data": contacts_count > 0 or threads_count > 0,
                 "contacts_count": contacts_count,
                 "threads_count": threads_count,
-                "oauth_connected": oauth_status.get("connected", False),
+                "oauth_connected": oauth_connected,
                 "last_sync": oauth_status.get("last_sync"),
-                "connected_at": oauth_status.get("connected_at")
+                "connected_at": oauth_status.get("connected_at"),
+                "auto_sync_enabled": oauth_status.get("auto_sync_enabled", True)
             }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
