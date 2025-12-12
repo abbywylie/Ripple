@@ -429,13 +429,32 @@ def get_gmail_sync_status(user_id: int) -> Dict[str, Any]:
                 "auto_sync_enabled": True
             }
         
-        last_sync = row[1].isoformat() if row[1] else None
+        # Format timestamps with UTC timezone indicator
+        # If datetime is timezone-naive, assume it's UTC and append 'Z'
+        last_sync = None
+        if row[1]:
+            dt = row[1]
+            if dt.tzinfo is None:
+                # Timezone-naive datetime, assume UTC and append 'Z'
+                last_sync = dt.isoformat() + 'Z'
+            else:
+                # Timezone-aware datetime, convert to UTC and append 'Z'
+                last_sync = dt.astimezone(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
+        
+        connected_at = None
+        if row[2]:
+            dt = row[2]
+            if dt.tzinfo is None:
+                connected_at = dt.isoformat() + 'Z'
+            else:
+                connected_at = dt.astimezone(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
+        
         auto_sync_enabled = row[3] if row[3] is not None else True
         
         return {
             "oauth_connected": True,
             "last_sync": last_sync,
-            "connected_at": row[2].isoformat() if row[2] else None,
+            "connected_at": connected_at,
             "auto_sync_enabled": auto_sync_enabled
         }
 

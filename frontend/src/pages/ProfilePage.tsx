@@ -20,10 +20,19 @@ import { useSearchParams } from 'react-router-dom';
 const formatSyncTime = (timestamp: string | null | undefined): string => {
   if (!timestamp) return 'Never';
   try {
-    const date = new Date(timestamp);
+    // Ensure timestamp is treated as UTC if it doesn't have timezone info
+    let dateStr = timestamp;
+    // If timestamp doesn't end with 'Z' or timezone offset, assume it's UTC
+    if (!timestamp.endsWith('Z') && !timestamp.match(/[+-]\d{2}:\d{2}$/)) {
+      dateStr = timestamp + 'Z';
+    }
+    
+    const date = new Date(dateStr);
     // Check if date is valid
     if (isNaN(date.getTime())) return 'Invalid date';
+    
     // Format as local date and time with timezone
+    // This will automatically convert UTC to user's local timezone
     return date.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
