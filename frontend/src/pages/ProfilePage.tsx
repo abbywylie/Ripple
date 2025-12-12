@@ -16,6 +16,28 @@ import { toast } from 'sonner';
 import { authApi, publicProfilesApi, gmailApi } from '@/lib/api';
 import { useSearchParams } from 'react-router-dom';
 
+// Helper function to format sync timestamp to local time
+const formatSyncTime = (timestamp: string | null | undefined): string => {
+  if (!timestamp) return 'Never';
+  try {
+    const date = new Date(timestamp);
+    // Check if date is valid
+    if (isNaN(date.getTime())) return 'Invalid date';
+    // Format as local date and time with timezone
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZoneName: 'short'
+    });
+  } catch {
+    return 'Unknown';
+  }
+};
+
 const ProfilePage = () => {
   const { user, logout } = useAuth();
   const { darkMode, animationsEnabled, efficientLoading, tooltipsEnabled, setDarkMode, setAnimationsEnabled, setEfficientLoading, setTooltipsEnabled } = useSettings();
@@ -91,6 +113,10 @@ const ProfilePage = () => {
     try {
       const status = await gmailApi.getSyncStatus();
       setGmailSyncStatus(status);
+      // Update auto-sync enabled state from API response
+      if (status.auto_sync_enabled !== undefined) {
+        setAutoSyncEnabled(status.auto_sync_enabled);
+      }
     } catch (error) {
       console.error('Failed to load Gmail status:', error);
     } finally {
@@ -776,7 +802,7 @@ const ProfilePage = () => {
                             </Label>
                             <p className="text-xs text-muted-foreground">
                               {gmailSyncStatus?.oauth_connected 
-                                ? `Connected • Last synced: ${gmailSyncStatus?.last_sync ? new Date(gmailSyncStatus.last_sync).toLocaleString() : 'Never'}`
+                                ? `Connected • Last synced: ${formatSyncTime(gmailSyncStatus?.last_sync)}`
                                 : 'Not connected'}
                             </p>
                           </div>
