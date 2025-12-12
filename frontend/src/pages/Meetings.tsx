@@ -53,10 +53,27 @@ const Meetings = () => {
     }
   };
 
+  // Helper function to parse date-only strings (YYYY-MM-DD) as local dates
+  const parseLocalDate = (dateString: string): Date | null => {
+    if (!dateString) return null;
+    try {
+      // If it's a date-only string (YYYY-MM-DD), parse it as local date
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        const [year, month, day] = dateString.split('-').map(Number);
+        return new Date(year, month - 1, day); // month is 0-indexed
+      }
+      // Otherwise, parse normally
+      return new Date(dateString);
+    } catch {
+      return null;
+    }
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return "No date";
     try {
-      const date = new Date(dateString);
+      const date = parseLocalDate(dateString);
+      if (!date) return dateString;
       return date.toLocaleDateString('en-US', { 
         weekday: 'short', 
         month: 'short', 
@@ -85,9 +102,12 @@ const Meetings = () => {
   const getMeetingStatus = (meeting: any) => {
     if (!meeting.meeting_date) return "scheduled";
     
-    const meetingDate = new Date(meeting.meeting_date);
+    const meetingDate = parseLocalDate(meeting.meeting_date);
+    if (!meetingDate) return "scheduled";
+    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    meetingDate.setHours(0, 0, 0, 0);
     
     if (meetingDate < today) return "past";
     if (meetingDate.getTime() === today.getTime()) return "today";
@@ -128,7 +148,9 @@ const Meetings = () => {
       return order[statusA as keyof typeof order] - order[statusB as keyof typeof order];
     }
     
-    return new Date(a.meeting_date || 0).getTime() - new Date(b.meeting_date || 0).getTime();
+    const dateA = parseLocalDate(a.meeting_date || '') || new Date(0);
+    const dateB = parseLocalDate(b.meeting_date || '') || new Date(0);
+    return dateA.getTime() - dateB.getTime();
   });
 
   const stats = {
@@ -142,7 +164,8 @@ const Meetings = () => {
   const getMeetingsForDate = (date: Date) => {
     return meetings.filter(meeting => {
       if (!meeting.meeting_date) return false;
-      const meetingDate = new Date(meeting.meeting_date);
+      const meetingDate = parseLocalDate(meeting.meeting_date);
+      if (!meetingDate) return false;
       return meetingDate.toDateString() === date.toDateString();
     });
   };
